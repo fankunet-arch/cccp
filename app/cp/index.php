@@ -46,11 +46,11 @@ if (function_exists('require_login')) {
 $protected_routes = [
     // 仪表盘
     'dashboard' => APP_PATH_CP . '/views/dashboard/index.php',
-    
+
     // 个人资料
     'profile'       => APP_PATH_CP . '/views/profile/index.php',
     'profile_save'  => APP_PATH_CP . '/actions/profile/save.php',
-    
+
     // Sushisom (A1.png)
     'som_add'       => APP_PATH_CP . '/views/som_view_add.php',
     'som_save'      => APP_PATH_CP . '/actions/som_action_sushisom_save.php',
@@ -71,11 +71,11 @@ $protected_routes = [
     'tea_dashboard'                 => APP_PATH_CP . '/tea/views/tea_view_dashboard.php',
     'tea_add'                       => APP_PATH_CP . '/tea/views/tea_view_add.php',
     'tea_save'                      => APP_PATH_CP . '/tea/actions/tea_action_save.php',
-    'tea_report_investor'           => APP_PATH_CP . '/tea/views/tea_view_report_investor.php', 
-    
+    'tea_report_investor'           => APP_PATH_CP . '/tea/views/tea_view_report_investor.php',
+
     // 【已修复】新增缺失的路由，用于 AJAX 获取数据
-    'tea_report_investor_get_data'  => APP_PATH_CP . '/tea/actions/tea_action_report_investor_get_data.php', 
-    
+    'tea_report_investor_get_data'  => APP_PATH_CP . '/tea/actions/tea_action_report_investor_get_data.php',
+
     // 【新增】店铺管理路由
     'tea_store_manage'              => APP_PATH_CP . '/tea/views/tea_view_store_manage.php', // 店铺管理视图
     'tea_store_save'                => APP_PATH_CP . '/tea/actions/tea_action_store_save.php', // 店铺保存/修改动作
@@ -102,6 +102,10 @@ $protected_routes = [
     'dts_event_form'                => APP_PATH_CP . '/dts/views/dts_event_form.php',
     'dts_event_save'                => APP_PATH_CP . '/dts/actions/dts_event_save.php',
 
+    // 分类管理
+    'dts_category_manage'           => APP_PATH_CP . '/dts/views/dts_category_manage.php',
+    'dts_category_save'             => APP_PATH_CP . '/dts/actions/dts_category_save.php',
+
     // 退出登录
     'logout' => 'process_logout' // 特殊：函数调用
 ];
@@ -109,7 +113,7 @@ $protected_routes = [
 // 6. 路由分发
 if (isset($protected_routes[$action])) {
     $route = $protected_routes[$action];
-    
+
     if ($action === 'logout') {
         if (function_exists('process_logout')) process_logout();
         exit();
@@ -121,29 +125,29 @@ if (isset($protected_routes[$action])) {
     if ($is_action) {
         // 如果是 Action (例如保存、获取数据)，则直接包含它
         require_once $route;
-    } 
+    }
     // 所有 View (视图页面)，加载标准 AdminLTE 布局
     else {
         require_once APP_PATH_CP . '/views/layouts/header.php';
         require_once $route;
         require_once APP_PATH_CP . '/views/layouts/footer.php';
     }
-    
+
 } else {
     // 默认或未找到路由，尝试加载 404 视图
     http_response_code(404);
     $not_found_view = APP_PATH_CP . '/views/errors/404.php';
-    
+
     // 404 页面的最低要求是加载 header 和 footer
     if (file_exists(APP_PATH_CP . '/views/layouts/header.php') && file_exists(APP_PATH_CP . '/views/layouts/footer.php')) {
         require_once APP_PATH_CP . '/views/layouts/header.php';
-        
+
         // 渲染简易 404 内容
         echo '<div class="content-wrapper"><section class="content" style="padding:20px;">
                 <h1>404 Not Found</h1>
                 <p>页面未找到：' . htmlspecialchars($action) . '</p>
               </section></div>';
-              
+
         require_once APP_PATH_CP . '/views/layouts/footer.php';
     } else {
         // 极端回退（无布局）
