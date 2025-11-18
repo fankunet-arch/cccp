@@ -615,4 +615,12 @@ a {
   width: 16px; height: 16px; border: 2px solid #fff; border-right-color: transparent;
   border-radius: 50%; animation: cp-spin .9s linear infinite;
 }
-@keyframes cp-spin { to { transform: rotate(360deg); } }
+@keyframes cp-spin { to { transform: rotate(360deg); } }body {
+    background-color: #f0f2f5;
+}
+.login-card {
+    max-width: 450px;
+    border: none;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}

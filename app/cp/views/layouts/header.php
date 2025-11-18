@@ -56,6 +56,8 @@ $dts_actions = [
     'dts_rule',
     'dts_event_form',
     'dts_event_save',
+    'dts_category_manage',
+    'dts_category_save',
 ];
 
 $is_som_active = isActive($som_actions, $current_action);
@@ -82,13 +84,13 @@ if ($is_som_active) {
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>Sushisom CP | 控制面板</title>
     <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
-    
+
     <link rel="stylesheet" href="/cp/style.css">
-    
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer" />
-    
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    
+
 </head>
 <body class="hold-transition">
 <div class="wrapper">
@@ -96,24 +98,24 @@ if ($is_som_active) {
     <aside class="main-sidebar">
         <div class="sidebar-logo">ABCABC CP</div>
         <section class="sidebar">
-        
+
         <ul class="sidebar-menu">
             <li class="nav-header">主导航</li>
-            
+
             <li class="nav-item">
                 <a href="<?php echo CP_BASE_URL; ?>dashboard" class="nav-link <?php echo isActive('dashboard', $current_action); ?>">
                     <i class="fas fa-tachometer-alt"></i> <span>仪表盘</span>
                 </a>
             </li>
-            
+
             <li class="nav-header">财务管理</li>
-            
+
             <li class="nav-item treeview <?php echo $is_som_active; ?>">
                 <a href="#" class="nav-link menu-toggle <?php echo $is_som_active; ?>">
                     <i class="fas fa-cutlery"></i> <span>Sushisom 财务</span>
                     <i class="fas fa-angle-right pull-right"></i>
                 </a>
-                
+
                 <ul class="treeview-menu" style="display: <?php echo $is_som_active ? 'block' : 'none'; ?>;">
                     <li class="nav-item">
                         <a href="<?php echo CP_BASE_URL; ?>som_add" class="nav-link <?php echo isActive('som_add', $current_action); ?>">
@@ -137,13 +139,13 @@ if ($is_som_active) {
                     </li>
                 </ul>
             </li>
-            
+
             <li class="nav-item treeview <?php echo $is_tea_active; ?>">
                 <a href="#" class="nav-link menu-toggle <?php echo $is_tea_active; ?>">
                     <i class="fas fa-mug-hot"></i> <span><tea> TEA投资</span>
                     <i class="fas fa-angle-right pull-right"></i>
                 </a>
-                
+
                 <ul class="treeview-menu" style="display: <?php echo $is_tea_active ? 'block' : 'none'; ?>;">
                     <li class="nav-item">
                         <a href="<?php echo CP_BASE_URL; ?>tea_dashboard" class="nav-link <?php echo isActive('tea_dashboard', $current_action); ?>">
@@ -167,7 +169,7 @@ if ($is_som_active) {
                     </li>
                 </ul>
             </li>
-            
+
             <li class="nav-header">日期管理</li>
 
             <li class="nav-item treeview <?php echo $is_dts_active; ?>">
@@ -197,6 +199,11 @@ if ($is_som_active) {
                             <i class="far fa-circle"></i> 规则管理
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a href="<?php echo CP_BASE_URL; ?>dts_category_manage" class="nav-link <?php echo isActive('dts_category_manage', $current_action); ?>">
+                            <i class="far fa-circle"></i> 分类管理
+                        </a>
+                    </li>
                 </ul>
             </li>
 
@@ -212,7 +219,7 @@ if ($is_som_active) {
         </section>
     </aside>
     <div class="sidebar-backdrop"></div>
-    
+
     <div class="main-content">
         <header class="main-header">
 			<button type="button" class="sidebar-toggle-btn" aria-label="打开菜单">
@@ -225,29 +232,6 @@ if ($is_som_active) {
             </div>
         </header>
 
-        
-        <div class="view-content-wrapper">
-		<script>
-		// 子菜单展开/收起 + 移动端侧栏开关
-		$(function() {
-			// 子菜单
-			$('.main-sidebar .treeview .menu-toggle').on('click', function(e) {
-				e.preventDefault();
-				const $ul = $(this).next('.treeview-menu');
-				$ul.slideToggle(150);
-				$(this).closest('.treeview').toggleClass('menu-open');
-			});
 
-			// 移动端侧栏开关
-			var $body = $('body');
-			$('.sidebar-toggle-btn').on('click', function(){
-				$body.toggleClass('sidebar-open');
-			});
-			$('.sidebar-backdrop').on('click', function(){
-				$body.removeClass('sidebar-open');
-			});
-			$(document).on('keydown', function(e){
-				if (e.key === 'Escape') $body.removeClass('sidebar-open');
-			});
-		});
-		</script>
+        <div class="view-content-wrapper">
+<script src="/cp/js/main.js"></script>

@@ -51,7 +51,7 @@ $events = $stmt->fetchAll();
 
 ?>
 
-<link rel="stylesheet" href="/cp/dts/dts_style.css">
+<link rel="stylesheet" href="/cp/dts/css/dts_style.css">
 
 <section class="content-header-replacement">
     <div class="page-header-title">
@@ -219,79 +219,3 @@ $events = $stmt->fetchAll();
     </div>
 
 </section>
-
-<style>
-.timeline {
-    position: relative;
-    padding: 20px 0;
-}
-.timeline-item {
-    position: relative;
-    padding-left: 40px;
-    margin-bottom: 30px;
-}
-.timeline-marker {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background-color: #3b82f6;
-    border: 3px solid #fff;
-    box-shadow: 0 0 0 2px #3b82f6;
-}
-.timeline-item::before {
-    content: '';
-    position: absolute;
-    left: 7px;
-    top: 16px;
-    bottom: -30px;
-    width: 2px;
-    background-color: #e0e0e0;
-}
-.timeline-item:last-child::before {
-    display: none;
-}
-.timeline-content {
-    background: #fff;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 15px;
-}
-.timeline-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #f0f0f0;
-}
-.timeline-date {
-    font-weight: 600;
-    color: #333;
-}
-.timeline-body p {
-    margin: 5px 0;
-}
-.timeline-footer {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid #f0f0f0;
-}
-.alert-danger {
-    background-color: #fee;
-    border-color: #fcc;
-    color: #c00;
-}
-.alert-warning {
-    background-color: #ffc;
-    border-color: #fc0;
-    color: #860;
-}
-.alert-info {
-    background-color: #e7f3ff;
-    border-color: #b3d9ff;
-    color: #0066cc;
-}
-</style>
