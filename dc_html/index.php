@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 // ---------- 路径常量 ----------
-define('BASE_PATH', __DIR__);
+define('BASE_PATH', dirname(__DIR__));
 define('CP_APP_DIR', BASE_PATH . '/app/cp');
 
 // ---------- 更新 CP_BASE_URL ----------
