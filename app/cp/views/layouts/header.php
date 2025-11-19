@@ -46,6 +46,7 @@ $tea_actions = [
 // DTS 模块的 action 列表
 $dts_actions = [
     'dts_main',
+    'dts_quick',
     'dts_subject',
     'dts_subject_save',
     'dts_subject_get_data',
@@ -56,6 +57,7 @@ $dts_actions = [
     'dts_rule',
     'dts_event_form',
     'dts_event_save',
+    'dts_quick_save',
     'dts_category_manage',
     'dts_category_save',
 ];
@@ -182,6 +184,11 @@ if ($is_som_active) {
                     <li class="nav-item">
                         <a href="<?php echo CP_BASE_URL; ?>dts_main" class="nav-link <?php echo isActive('dts_main', $current_action); ?>">
                             <i class="far fa-circle"></i> DTS 总览
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="<?php echo CP_BASE_URL; ?>dts_quick" class="nav-link <?php echo isActive('dts_quick', $current_action); ?>">
+                            <i class="far fa-circle"></i> 极速录入
                         </a>
                     </li>
                     <li class="nav-item">

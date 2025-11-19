@@ -83,6 +83,7 @@ $protected_routes = [
     // <DTS> 模块路由（Date Timeline System - 日期时间线系统）
     // 总览
     'dts_main'                      => APP_PATH_CP . '/dts/views/dts_main.php',
+    'dts_quick'                     => APP_PATH_CP . '/dts/views/dts_view_quick.php',
 
     // 条目管理（CP 基线）
     'dts_entry'                     => APP_PATH_CP . '/dts/views/dts_entry.php',
@@ -106,6 +107,7 @@ $protected_routes = [
     // 事件管理
     'dts_event_form'                => APP_PATH_CP . '/dts/views/dts_event_form.php',
     'dts_event_save'                => APP_PATH_CP . '/dts/actions/dts_event_save.php',
+    'dts_quick_save'                => APP_PATH_CP . '/dts/actions/dts_action_quick_save.php',
 
     // 分类管理
     'dts_category_manage'           => APP_PATH_CP . '/dts/views/dts_category_manage.php',
