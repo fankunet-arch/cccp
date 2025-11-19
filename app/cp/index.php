@@ -98,14 +98,16 @@ $protected_routes = [
     // 规则管理
     'dts_rule'                      => APP_PATH_CP . '/dts/views/dts_rule.php',
 
-    // 事件管理
-    'dts_ev_edit'                   => APP_PATH_CP . '/dts/views/dts_ev_editor.php', // 原 dts_event_form
-    'dts_ev_save'                   => APP_PATH_CP . '/dts/actions/dts_ev_save.php', // 原 dts_event_save
+    // 事件管理（兼容旧版 action 名称）
+    'dts_ev_edit'                   => APP_PATH_CP . '/dts/views/dts_ev_editor.php',
+    'dts_ev_save'                   => APP_PATH_CP . '/dts/actions/dts_ev_save.php',
+    'dts_event_form'                => APP_PATH_CP . '/dts/views/dts_event_form.php',  // legacy: index.php?action=dts_event_form
+    'dts_event_save'                => APP_PATH_CP . '/dts/actions/dts_event_save.php', // legacy: index.php?action=dts_event_save
 
     // 极速录入 (Smart Quick Entry)
-    'dts_quick'                     => APP_PATH_CP . '/dts/views/dts_view_quick.php', // 允许 dts_quick 访问
-    'dts_quick_add'                 => APP_PATH_CP . '/dts/views/dts_view_quick.php', // 重定向目标
-    'dts_quick_save'                => APP_PATH_CP . '/dts/actions/dts_action_quick_save.php', // 表单提交动作
+    'dts_quick'                     => APP_PATH_CP . '/dts/views/dts_view_quick.php',
+    'dts_quick_add'                 => APP_PATH_CP . '/dts/views/dts_view_quick.php',
+    'dts_quick_save'                => APP_PATH_CP . '/dts/actions/dts_action_quick_save.php',
 
     // 分类管理
     'dts_category_manage'           => APP_PATH_CP . '/dts/views/dts_category_manage.php',

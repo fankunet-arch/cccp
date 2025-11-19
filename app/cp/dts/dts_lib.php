@@ -216,8 +216,9 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
         }
 
         // 3. 更新或插入状态表
-        $state_exists = $pdo->prepare("SELECT id FROM cp_dts_object_state WHERE object_id = ?")->execute([$object_id]);
-        $state_row = $pdo->prepare("SELECT id FROM cp_dts_object_state WHERE object_id = ?")->fetch();
+        $state_stmt = $pdo->prepare("SELECT id FROM cp_dts_object_state WHERE object_id = ?");
+        $state_stmt->execute([$object_id]);
+        $state_row = $state_stmt->fetch();
 
         if ($state_row) {
             // 更新
