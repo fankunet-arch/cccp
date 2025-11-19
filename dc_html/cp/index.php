@@ -3,7 +3,8 @@
 declare(strict_types=1);
 
 // ---------- 路径常量 ----------
-define('BASE_PATH', dirname(__DIR__));
+// [修复] BASE_PATH 应该指向项目根目录，而不是 /dc_html
+define('BASE_PATH', dirname(dirname(__DIR__)));
 define('CP_APP_DIR', BASE_PATH . '/app/cp');
 
 // ---------- 更新 CP_BASE_URL ----------
