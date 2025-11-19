@@ -5,18 +5,18 @@
 
 // 确保函数存在 (如果这是单独执行)
 if (!function_exists('process_login')) {
-    
+
     function is_logged_in(): bool {
         return isset($_SESSION['user_id']);
     }
-    
+
     function require_login(): void {
         if (!is_logged_in()) {
             header("Location: /cp/index.php");
             exit();
         }
     }
-    
+
     function process_login(PDO $pdo): void {
         $login = $_POST['user_login'] ?? '';
         $secret = $_POST['user_secret'] ?? '';
@@ -80,25 +80,15 @@ function display_login_page(): void
     <title>系统登录</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <style>
-        body {
-            background-color: #f0f2f5;
-        }
-        .login-card {
-            max-width: 450px;
-            border: none;
-            border-radius: 0.75rem;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        }
-    </style>
+    <link rel="stylesheet" href="/cp/style.css">
 </head>
 <body class="d-flex align-items-center justify-content-center h-100">
-    
+
     <main class="w-100 m-auto p-4">
         <div class="card login-card mx-auto">
             <div class="card-body p-4 p-sm-5">
                 <h3 class="card-title text-center mb-4 fw-bold">Sushisom CP</h3>
-                
+
                 {$error_message}
 
                 <form action="/cp/index.php?action=login_process" method="POST">
@@ -110,7 +100,7 @@ function display_login_page(): void
                         <input type="password" class="form-control" id="user_secret" name="user_secret" placeholder="密码" required>
                         <label for="user_secret"><i class="fa-solid fa-lock me-2"></i>密码</label>
                     </div>
-                    
+
                     <div class="d-grid mt-4">
                         <button type="submit" class="btn btn-primary btn-lg fw-semibold">登 录</button>
                     </div>

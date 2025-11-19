@@ -138,7 +138,7 @@ if ($filter_type) {
 
 ?>
 
-<link rel="stylesheet" href="/cp/dts/dts_style.css">
+<link rel="stylesheet" href="/cp/dts/css/dts_style.css">
 
 <section class="content-header-replacement">
     <div class="page-header-title">
@@ -291,56 +291,3 @@ if ($filter_type) {
     </div>
 
 </section>
-
-<style>
-.urgency-row {
-    border-left: 4px solid transparent;
-}
-.urgency-row.urgency-danger {
-    border-left-color: #dc3545;
-    background-color: #fff5f5;
-}
-.urgency-row.urgency-warning {
-    border-left-color: #ffc107;
-    background-color: #fffbf0;
-}
-.urgency-row.urgency-info {
-    border-left-color: #17a2b8;
-    background-color: #f0f9ff;
-}
-.urgency-badge {
-    display: inline-block;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-weight: 600;
-    font-size: 12px;
-}
-.urgency-badge.urgency-danger {
-    background-color: #dc3545;
-    color: white;
-}
-.urgency-badge.urgency-warning {
-    background-color: #ffc107;
-    color: #333;
-}
-.urgency-badge.urgency-info {
-    background-color: #17a2b8;
-    color: white;
-}
-.badge-deadline {
-    background-color: #dc3545;
-    color: white;
-}
-.badge-cycle {
-    background-color: #28a745;
-    color: white;
-}
-.badge-follow_up {
-    background-color: #17a2b8;
-    color: white;
-}
-.badge-window_start {
-    background-color: #6c757d;
-    color: white;
-}
-</style>

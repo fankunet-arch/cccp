@@ -19,7 +19,7 @@ if (!defined('APP_PATH_CP')) {
     define('APP_PATH_CP', BASE_PATH . '/app/cp');
 }
 if (!defined('CP_BASE_URL')) {
-    define('CP_BASE_URL', '/cp/index.php?action=');
+    define('CP_BASE_URL', '/index.php?action=');
 }
 
 

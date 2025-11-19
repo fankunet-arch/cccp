@@ -43,7 +43,7 @@ $page_title = $is_edit ? '编辑对象' : '新增对象';
 
 ?>
 
-<link rel="stylesheet" href="/cp/dts/dts_style.css">
+<link rel="stylesheet" href="/cp/dts/css/dts_style.css">
 
 <section class="content-header-replacement">
     <div class="page-header-title">

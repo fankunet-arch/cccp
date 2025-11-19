@@ -77,7 +77,7 @@ $objects = $stmt->fetchAll();
 
 ?>
 
-<link rel="stylesheet" href="/cp/dts/dts_style.css">
+<link rel="stylesheet" href="/cp/dts/css/dts_style.css">
 
 <section class="content-header-replacement">
     <div class="page-header-title">
@@ -146,7 +146,7 @@ $objects = $stmt->fetchAll();
                         <a href="<?php echo CP_BASE_URL; ?>dts_object_form" class="btn btn-success" style="margin-left:auto;">
                             <i class="fas fa-plus-circle"></i> 新增对象
                         </a>
-						
+
 						<a href="<?php echo CP_BASE_URL; ?>dts_category_manage" class="btn btn-default">
                             <i class="fas fa-tags"></i> 管理分类
                         </a>
@@ -234,42 +234,4 @@ $objects = $stmt->fetchAll();
 
 </section>
 
-<script>
-$(document).ready(function() {
-    // Toast 提示
-    if ($('#feedback-bar').length) {
-        setTimeout(function() {
-            $('#feedback-bar').fadeOut();
-        }, 3000);
-    }
-});
-</script>
-
-<style>
-.disabled-row {
-    opacity: 0.6;
-    background-color: #f9f9f9;
-}
-.badge {
-    display: inline-block;
-    padding: 4px 8px;
-    font-size: 12px;
-    font-weight: 600;
-    border-radius: 4px;
-}
-.badge-success {
-    background-color: #28a745;
-    color: white;
-}
-.badge-secondary {
-    background-color: #6c757d;
-    color: white;
-}
-.badge-info {
-    background-color: #17a2b8;
-    color: white;
-}
-.form-inline .form-group {
-    margin-bottom: 0;
-}
-</style>
+<script src="/cp/dts/js/dts_object.js"></script>
