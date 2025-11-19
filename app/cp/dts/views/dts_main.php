@@ -158,9 +158,6 @@ if ($filter_type) {
             <div class="card box-default">
                 <div class="card-body">
                     <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                        <a href="<?php echo CP_BASE_URL; ?>dts_entry" class="btn btn-default">
-                            <i class="fas fa-tags"></i> DTS 条目
-                        </a>
                         <a href="<?php echo CP_BASE_URL; ?>dts_subject" class="btn btn-default">
                             <i class="fas fa-users"></i> 主体管理
                         </a>
