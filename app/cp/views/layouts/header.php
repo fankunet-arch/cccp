@@ -46,6 +46,9 @@ $tea_actions = [
 // DTS 模块的 action 列表
 $dts_actions = [
     'dts_main',
+    'dts_entry',
+    'dts_entry_form',
+    'dts_entry_save',
     'dts_subject',
     'dts_subject_save',
     'dts_subject_get_data',
@@ -182,6 +185,11 @@ if ($is_som_active) {
                     <li class="nav-item">
                         <a href="<?php echo CP_BASE_URL; ?>dts_main" class="nav-link <?php echo isActive('dts_main', $current_action); ?>">
                             <i class="far fa-circle"></i> DTS 总览
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="<?php echo CP_BASE_URL; ?>dts_entry" class="nav-link <?php echo isActive(['dts_entry', 'dts_entry_form'], $current_action); ?>">
+                            <i class="far fa-circle"></i> DTS 条目
                         </a>
                     </li>
                     <li class="nav-item">

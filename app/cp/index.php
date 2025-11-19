@@ -84,6 +84,11 @@ $protected_routes = [
     // 总览
     'dts_main'                      => APP_PATH_CP . '/dts/views/dts_main.php',
 
+    // 条目管理（CP 基线）
+    'dts_entry'                     => APP_PATH_CP . '/dts/views/dts_entry.php',
+    'dts_entry_form'                => APP_PATH_CP . '/dts/views/dts_entry_form.php',
+    'dts_entry_save'                => APP_PATH_CP . '/dts/actions/dts_entry_save.php',
+
     // 主体管理
     'dts_subject'                   => APP_PATH_CP . '/dts/views/dts_subject.php',
     'dts_subject_save'              => APP_PATH_CP . '/dts/actions/dts_subject_save.php',
