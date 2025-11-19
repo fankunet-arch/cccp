@@ -78,9 +78,9 @@ $events = $stmt->fetchAll();
                            class="btn btn-sm btn-primary">
                             <i class="fas fa-edit"></i> 编辑对象
                         </a>
-                        <a href="<?php echo CP_BASE_URL; ?>dts_event_form&object_id=<?php echo $object['id']; ?>"
+                        <a href="<?php echo CP_BASE_URL; ?>dts_ev_edit&object_id=<?php echo $object['id']; ?>"
                            class="btn btn-sm btn-success">
-                            <i class="fas fa-plus"></i> 新增事件
+                           <i class="fas fa-plus"></i> 新增事件
                         </a>
                     </div>
                 </div>
@@ -170,7 +170,7 @@ $events = $stmt->fetchAll();
                     <?php if (empty($events)): ?>
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle"></i> 暂无事件记录。
-                            <a href="<?php echo CP_BASE_URL; ?>dts_event_form&object_id=<?php echo $object['id']; ?>">点击这里</a>
+                            <a href="<?php echo CP_BASE_URL; ?>dts_ev_edit&object_id=<?php echo $object['id']; ?>">点击这里</a>
                             添加第一条事件。
                         </div>
                     <?php else: ?>
@@ -201,10 +201,11 @@ $events = $stmt->fetchAll();
                                             <?php endif; ?>
                                         </div>
                                         <div class="timeline-footer">
-                                            <a href="<?php echo CP_BASE_URL; ?>dts_event_form&id=<?php echo $event['id']; ?>&object_id=<?php echo $object['id']; ?>"
+                                            <a href="<?php echo CP_BASE_URL; ?>dts_ev_edit&id=<?php echo $event['id']; ?>&object_id=<?php echo $object['id']; ?>"
                                                class="btn btn-xs btn-primary">
                                                 <i class="fas fa-edit"></i> 编辑
                                             </a>
+                                        </div>
                                         </div>
                                     </div>
                                 </div>

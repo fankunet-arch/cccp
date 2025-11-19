@@ -54,8 +54,8 @@ $dts_actions = [
     'dts_object_detail',
     'dts_object_save',
     'dts_rule',
-    'dts_event_form',
-    'dts_event_save',
+    'dts_ev_edit',  // [修改] 原 dts_event_form
+    'dts_ev_save',  // [修改] 原 dts_event_save
     'dts_category_manage',
     'dts_category_save',
 ];
