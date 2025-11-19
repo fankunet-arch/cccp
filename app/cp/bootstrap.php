@@ -18,8 +18,9 @@ if (!defined('BASE_PATH')) {
 if (!defined('APP_PATH_CP')) {
     define('APP_PATH_CP', BASE_PATH . '/app/cp');
 }
+// [修复] 确保 CP_BASE_URL 指向正确的 /cp/ 目录
 if (!defined('CP_BASE_URL')) {
-    define('CP_BASE_URL', '/index.php?action=');
+    define('CP_BASE_URL', '/cp/index.php?action=');
 }
 
 
