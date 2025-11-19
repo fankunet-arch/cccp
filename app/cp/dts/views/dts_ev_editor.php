@@ -41,6 +41,22 @@ if ($object_id) {
     exit();
 }
 
+// [修复] 如果对象本身没有 subject_id (可能由旧版极速录入造成)，尝试从事件中回填
+if ($object && empty($object['subject_id'])) {
+    // 优先从当前编辑的事件中获取
+    if (!empty($event['subject_id'])) {
+        $object['subject_id'] = $event['subject_id'];
+    } else {
+        // 否则，从该对象最新的一个事件中查找 subject_id
+        $stmt_find = $pdo->prepare("SELECT subject_id FROM cp_dts_event WHERE object_id = ? AND subject_id IS NOT NULL ORDER BY event_date DESC, id DESC LIMIT 1");
+        $stmt_find->execute([$object['id']]);
+        $found_subject_id = $stmt_find->fetchColumn();
+        if ($found_subject_id) {
+            $object['subject_id'] = $found_subject_id;
+        }
+    }
+}
+
 // 如果对象不存在
 if (!$object) {
     dts_set_feedback('danger', '对象不存在或已被删除');
