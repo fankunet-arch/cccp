@@ -11,6 +11,18 @@ require_once APP_PATH_CP . '/dts/dts_lib.php';
 $categories = dts_load_categories();
 $page_title = '分类管理';
 
+$feedback = dts_get_feedback();
+$feedback_message = '';
+if ($feedback) {
+    $alert_type = $feedback['type'] === 'success' ? 'success' : ($feedback['type'] === 'info' ? 'info' : 'danger');
+    $icon = $feedback['type'] === 'success' ? 'check' : 'ban';
+    $feedback_message = <<<HTML
+    <div id="feedback-bar" class="feedback-bar {$alert_type}">
+        <i class="fas fa-{$icon} me-2"></i> {$feedback['message']}
+    </div>
+HTML;
+}
+
 ?>
 
 <link rel="stylesheet" href="/cp/dts/css/dts_style.css">
@@ -35,6 +47,9 @@ $page_title = '分类管理';
                     <h3 class="box-title">
                         <i class="fas fa-sitemap"></i> <?php echo $page_title; ?>
                     </h3>
+                </div>
+                <div id="feedback-container">
+                    <?php echo $feedback_message; ?>
                 </div>
                 <form id="category-form" class="form-horizontal" action="<?php echo CP_BASE_URL; ?>dts_category_save" method="post">
                     <div class="card-body">
