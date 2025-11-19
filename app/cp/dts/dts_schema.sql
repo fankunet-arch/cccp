@@ -21,6 +21,44 @@ CREATE TABLE IF NOT EXISTS `cp_dts_subject` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DTS主体表';
 
 
+-- 1.1 CP 基线 DTS 条目表 (cp_dts_entry)
+-- 用于 CP 层维护标准日期标签，后续 SOM 可继承/覆写
+CREATE TABLE IF NOT EXISTS `cp_dts_entry` (
+  `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `dts_code` VARCHAR(100) NOT NULL COMMENT '系统唯一 code',
+  `entry_type` ENUM('holiday','promotion','system','custom') NOT NULL DEFAULT 'custom' COMMENT '条目类型',
+  `date_mode` ENUM('single','range') NOT NULL DEFAULT 'single' COMMENT '日期模式：单日/区间',
+  `date_value` DATE DEFAULT NULL COMMENT '单日日期',
+  `start_date` DATE DEFAULT NULL COMMENT '区间开始日期',
+  `end_date` DATE DEFAULT NULL COMMENT '区间结束日期',
+  `status` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1=启用 0=停用',
+  `show_to_front` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1=向前端展示 0=仅内部逻辑',
+  `name_zh` VARCHAR(200) NOT NULL COMMENT '名称（中文）',
+  `name_en` VARCHAR(200) DEFAULT NULL COMMENT '名称（英文）',
+  `short_title` VARCHAR(100) DEFAULT NULL COMMENT '前端短标题',
+  `color_hex` VARCHAR(20) DEFAULT NULL COMMENT '颜色值',
+  `tag_class` VARCHAR(100) DEFAULT NULL COMMENT '标签样式类',
+  `languages` VARCHAR(200) DEFAULT NULL COMMENT '适用语言列表，逗号分隔，空=全部',
+  `platforms` VARCHAR(200) DEFAULT NULL COMMENT '适用端，如PC,M,APP，空=全部',
+  `modules` TEXT DEFAULT NULL COMMENT '适用模块列表，逗号分隔',
+  `priority` INT(11) NOT NULL DEFAULT 100 COMMENT '优先级，越大越靠前',
+  `external_id` VARCHAR(100) DEFAULT NULL COMMENT '外部关联ID',
+  `external_url` VARCHAR(500) DEFAULT NULL COMMENT '外部链接',
+  `remark` TEXT DEFAULT NULL COMMENT '备注',
+  `source` ENUM('CP','SOM') NOT NULL DEFAULT 'CP' COMMENT '来源：CP或SOM',
+  `som_id` INT(11) UNSIGNED DEFAULT NULL COMMENT '所属SOM（来源为SOM时使用）',
+  `local_override` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'SOM是否为覆写记录',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_code_source` (`dts_code`, `source`, `som_id`),
+  KEY `idx_type` (`entry_type`),
+  KEY `idx_date` (`date_mode`, `date_value`, `start_date`, `end_date`),
+  KEY `idx_status` (`status`),
+  KEY `idx_priority` (`priority`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='CP 基线 DTS 条目表';
+
+
 -- 2. 对象表 (cp_dts_object) - "哪一个对象"
 -- ========================================
 CREATE TABLE IF NOT EXISTS `cp_dts_object` (
