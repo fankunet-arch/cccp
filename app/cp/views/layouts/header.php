@@ -185,11 +185,6 @@ if ($is_som_active) {
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="<?php echo CP_BASE_URL; ?>dts_entry" class="nav-link <?php echo isActive('dts_entry', $current_action); ?>">
-                            <i class="far fa-circle"></i> DTS 条目
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a href="<?php echo CP_BASE_URL; ?>dts_subject" class="nav-link <?php echo isActive('dts_subject', $current_action); ?>">
                             <i class="far fa-circle"></i> 主体管理
                         </a>
