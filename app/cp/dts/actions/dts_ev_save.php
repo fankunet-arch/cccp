@@ -26,9 +26,9 @@ try {
     $mileage_now = dts_post('mileage_now') ?: null;
     $note = trim(dts_post('note', ''));
 
-    // 验证
-    if (empty($object_id) || empty($event_type) || empty($event_date)) {
-        dts_set_feedback('danger', '请填写必填字段');
+    // [修复] 增强验证，确保 subject_id 存在
+    if (empty($object_id) || empty($subject_id) || empty($event_type) || empty($event_date)) {
+        dts_set_feedback('danger', '请填写必填字段 (对象/主体/类型/日期)');
         header('Location: ' . $_SERVER['HTTP_REFERER']);
         exit();
     }
@@ -38,6 +38,7 @@ try {
         // 更新
         $stmt = $pdo->prepare("
             UPDATE cp_dts_event SET
+                subject_id = ?,
                 rule_id = ?,
                 event_type = ?,
                 event_date = ?,
@@ -48,6 +49,7 @@ try {
             WHERE id = ?
         ");
         $stmt->execute([
+            $subject_id,
             $rule_id,
             $event_type,
             $event_date,

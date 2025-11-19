@@ -1,7 +1,6 @@
 <?php
 /**
  * DTS 事件删除动作
- * 文件名: dts_ev_del.php (简写以避开防火墙)
  */
 
 declare(strict_types=1);
@@ -10,31 +9,53 @@ require_once APP_PATH_CP . '/dts/dts_lib.php';
 
 global $pdo;
 
-// 获取参数
-$event_id = dts_get('id');
-$object_id = dts_get('object_id');
-
-if (empty($event_id) || empty($object_id)) {
-    dts_set_feedback('danger', '参数缺失，无法删除');
-    header('Location: ' . $_SERVER['HTTP_REFERER']);
-    exit();
+// 必须是 POST 请求
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    die('Method Not Allowed');
 }
+
+// 检查登录状态
+require_login();
 
 try {
-    // 1. 执行删除
-    $stmt = $pdo->prepare("DELETE FROM cp_dts_event WHERE id = ?");
-    $stmt->execute([$event_id]);
+    $event_id = dts_post('event_id');
+    $object_id = dts_post('object_id'); // 用于跳转回对象详情页
 
-    // 2. 重新计算对象状态（非常重要，因为删除的可能是最新事件）
+    if (empty($event_id) || empty($object_id)) {
+        dts_set_feedback('danger', '无效的请求：缺少事件 ID 或对象 ID。');
+        header("Location: " . CP_BASE_URL . "dts_object");
+        exit();
+    }
+
+    // [安全] 在删除前，先验证事件是否存在
+    $stmt = $pdo->prepare("SELECT id FROM cp_dts_event WHERE id = ?");
+    $stmt->execute([$event_id]);
+    if ($stmt->fetch() === false) {
+        dts_set_feedback('warning', '事件不存在或已被删除。');
+        header("Location: " . CP_BASE_URL . "dts_object_detail&id=$object_id");
+        exit();
+    }
+
+    // 执行删除
+    $stmt_del = $pdo->prepare("DELETE FROM cp_dts_event WHERE id = ?");
+    $stmt_del->execute([$event_id]);
+
+    // [重要] 删除事件后，必须重新计算并更新对象的状态
     dts_update_object_state($pdo, (int)$object_id);
 
-    dts_set_feedback('success', '事件已删除，状态已更新');
+    dts_set_feedback('success', '事件已成功删除。');
+    header("Location: " . CP_BASE_URL . "dts_object_detail&id=$object_id");
+    exit();
 
 } catch (Exception $e) {
-    error_log("DTS Event Delete Error: " . $e->getMessage());
+    error_log("DTS Event Deletion Error: " . $e->getMessage());
     dts_set_feedback('danger', '删除失败：' . $e->getMessage());
+    // 尽可能跳转回原页面
+    if (!empty($object_id)) {
+        header("Location: " . CP_BASE_URL . "dts_object_detail&id=$object_id");
+    } else {
+        header("Location: " . CP_BASE_URL . "dts_main");
+    }
+    exit();
 }
-
-// 跳转回详情页
-header("Location: /cp/index.php?action=dts_object_detail&id=$object_id");
-exit();

@@ -99,8 +99,9 @@ $protected_routes = [
     'dts_rule'                      => APP_PATH_CP . '/dts/views/dts_rule.php',
 
     // 事件管理
-    'dts_ev_edit'                   => APP_PATH_CP . '/dts/views/dts_ev_editor.php', // 原 dts_event_form
-    'dts_ev_save'                   => APP_PATH_CP . '/dts/actions/dts_ev_save.php', // 原 dts_event_save
+    'dts_ev_edit'                   => APP_PATH_CP . '/dts/views/dts_ev_editor.php',
+    'dts_ev_save'                   => APP_PATH_CP . '/dts/actions/dts_ev_save.php',
+    'dts_ev_del'                    => APP_PATH_CP . '/dts/actions/dts_ev_del.php',
 
     // 极速录入 (Smart Quick Entry)
     'dts_quick'                     => APP_PATH_CP . '/dts/views/dts_view_quick.php', // 允许 dts_quick 访问
