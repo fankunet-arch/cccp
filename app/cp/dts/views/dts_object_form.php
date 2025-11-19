@@ -190,8 +190,8 @@ $page_title = $is_edit ? '编辑对象' : '新增对象';
 <script>
 $(document).ready(function() {
     // 分类数据（从 PHP 传递）
-    const categories = <?php echo json_encode($categories, JSON_UNESCAPING_UNICODE); ?>;
-    const currentSubCat = <?php echo json_encode($object['object_type_sub'] ?? '', JSON_UNESCAPING_UNICODE); ?>;
+    const categories = <?php echo json_encode($categories, JSON_UNESCAPED_UNICODE); ?>;
+    const currentSubCat = <?php echo json_encode($object['object_type_sub'] ?? '', JSON_UNESCAPED_UNICODE); ?>;
 
     // 大类改变时，更新小类
     $('#object_type_main').on('change', function() {
@@ -209,13 +209,28 @@ $(document).ready(function() {
         const subCatSelect = $('#object_type_sub');
         subCatSelect.empty();
 
-        if (!mainCat || !categories[mainCat]) {
+        if (!mainCat) {
             subCatSelect.append('<option value="">请先选择大类</option>');
             subCatSelect.prop('disabled', true);
             return;
         }
 
         const subCats = categories[mainCat];
+
+        if (!Array.isArray(subCats)) {
+            subCatSelect.append('<option value="">当前大类暂无可选小类</option>');
+
+            // 如果已有历史小类，仍然展示，便于用户调整
+            if (selectedSubCat) {
+                subCatSelect.append(
+                    $('<option></option>').val(selectedSubCat).text(selectedSubCat).attr('selected', 'selected')
+                );
+                subCatSelect.prop('disabled', false);
+            } else {
+                subCatSelect.prop('disabled', true);
+            }
+            return;
+        }
 
         // 始终添加"不选择小类"选项
         subCatSelect.append('<option value="">（不选择小类）</option>');

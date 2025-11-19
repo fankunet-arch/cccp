@@ -11,9 +11,21 @@ require_once APP_PATH_CP . '/dts/dts_lib.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $categories_text = dts_post('categories', '');
     $config_file = APP_PATH_CP . '/dts/dts_category.conf';
+    $config_dir = dirname($config_file);
 
-    // 备份旧的配置文件
-    copy($config_file, $config_file . '.bak');
+    // 确保配置目录存在
+    if (!is_dir($config_dir) && !mkdir($config_dir, 0775, true) && !is_dir($config_dir)) {
+        dts_set_feedback('danger', '保存失败：无法创建配置目录');
+        header('Location: ' . CP_BASE_URL . 'dts_category_manage');
+        exit();
+    }
+
+    // 备份旧的配置文件（若存在）
+    if (file_exists($config_file) && !@copy($config_file, $config_file . '.bak')) {
+        dts_set_feedback('danger', '保存失败：无法备份原有配置');
+        header('Location: ' . CP_BASE_URL . 'dts_category_manage');
+        exit();
+    }
 
     // 清理和验证输入
     $lines = explode("\n", $categories_text);
@@ -45,9 +57,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // 将清理后的内容写回配置文件
-    file_put_contents($config_file, implode("\n", $cleaned_lines));
+    $written = file_put_contents($config_file, implode("\n", $cleaned_lines) . "\n", LOCK_EX);
 
-    dts_set_feedback('success', '分类配置已保存');
-    header('Location: /index.php?action=dts_category_manage');
+    if ($written === false) {
+        dts_set_feedback('danger', '保存失败：无法写入配置文件');
+    } else {
+        dts_set_feedback('success', '分类配置已保存');
+    }
+
+    header('Location: ' . CP_BASE_URL . 'dts_category_manage');
     exit();
 }
