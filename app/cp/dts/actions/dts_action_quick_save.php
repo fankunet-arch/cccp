@@ -78,14 +78,16 @@ try {
     $pdo->commit();
     dts_set_feedback('success', "记录已保存！(主体: {$subject_name_input} - 对象: {$object_name})");
     
-    // 留在一个页面继续录入，提升效率
-    header('Location: ' . CP_BASE_URL . 'dts_quick_add');
+    // [修正] 路由名称统一为 dts_quick
+    header('Location: ' . CP_BASE_URL . 'dts_quick');
     exit();
 
 } catch (Exception $e) {
     $pdo->rollBack();
     error_log("DTS Quick Save Error: " . $e->getMessage());
     dts_set_feedback('danger', '保存失败：' . $e->getMessage());
-    header('Location: ' . CP_BASE_URL . 'dts_quick_add');
+    
+    // [修正] 路由名称统一为 dts_quick
+    header('Location: ' . CP_BASE_URL . 'dts_quick');
     exit();
 }

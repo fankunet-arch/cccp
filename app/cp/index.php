@@ -102,9 +102,19 @@ $protected_routes = [
     'dts_event_form'                => APP_PATH_CP . '/dts/views/dts_event_form.php',
     'dts_event_save'                => APP_PATH_CP . '/dts/actions/dts_event_save.php',
 
+    // 极速录入 (Smart Quick Entry)
+    'dts_quick'                     => APP_PATH_CP . '/dts/views/dts_view_quick.php', // 允许 dts_quick 访问
+    'dts_quick_add'                 => APP_PATH_CP . '/dts/views/dts_view_quick.php', // 重定向目标
+    'dts_quick_save'                => APP_PATH_CP . '/dts/actions/dts_action_quick_save.php', // 表单提交动作
+
     // 分类管理
     'dts_category_manage'           => APP_PATH_CP . '/dts/views/dts_category_manage.php',
     'dts_category_save'             => APP_PATH_CP . '/dts/actions/dts_category_save.php',
+
+    // DTS 基线条目管理
+    'dts_entry'                     => APP_PATH_CP . '/dts/views/dts_entry.php',
+    'dts_entry_form'                => APP_PATH_CP . '/dts/views/dts_entry_form.php',
+    'dts_entry_save'                => APP_PATH_CP . '/dts/actions/dts_entry_save.php',
 
     // 退出登录
     'logout' => 'process_logout' // 特殊：函数调用
@@ -156,4 +166,3 @@ if (isset($protected_routes[$action])) {
             . '</code></p></body></html>';
     }
 }
-?>

@@ -9,11 +9,12 @@ require_once APP_PATH_CP . '/dts/dts_lib.php';
 
 global $pdo;
 
-// 获取事件 ID（如果是编辑）
+// 获取参数
 $event_id = dts_get('id');
 $object_id = dts_get('object_id');
 $event = null;
 
+// 如果是编辑模式，获取事件详情
 if ($event_id) {
     $stmt = $pdo->prepare("SELECT * FROM cp_dts_event WHERE id = ?");
     $stmt->execute([$event_id]);
@@ -40,6 +41,13 @@ if ($object_id) {
     exit();
 }
 
+// 如果对象不存在
+if (!$object) {
+    dts_set_feedback('danger', '对象不存在或已被删除');
+    header('Location: /cp/index.php?action=dts_object');
+    exit();
+}
+
 // 获取可用规则（根据对象类别筛选）
 $stmt = $pdo->prepare("
     SELECT * FROM cp_dts_rule
@@ -48,14 +56,14 @@ $stmt = $pdo->prepare("
       AND (cat_sub = ? OR cat_sub IS NULL)
     ORDER BY rule_name
 ");
-$stmt->execute([$object['object_type_main'], $object['object_type_sub']]);
+$stmt->execute([$object['object_type_main'], $object['object_type_sub'] ?? '']);
 $rules = $stmt->fetchAll();
 
 $is_edit = !empty($event);
 
 ?>
 
-<link rel="stylesheet" href="/cp/dts/dts_style.css">
+<link rel="stylesheet" href="/cp/dts/css/dts_style.css">
 
 <section class="content-header-replacement">
     <div class="page-header-title">
@@ -73,12 +81,11 @@ $is_edit = !empty($event);
 
     <div class="row">
         <div class="col-md-12">
-            <!-- 对象信息 -->
             <div class="alert alert-info">
                 <strong>对象：</strong><?php echo htmlspecialchars($object['object_name']); ?>
                 （<?php echo htmlspecialchars($object['subject_name']); ?> /
                 <?php echo htmlspecialchars($object['object_type_main']); ?> /
-                <?php echo htmlspecialchars($object['object_type_sub']); ?>）
+                <?php echo htmlspecialchars($object['object_type_sub'] ?? '-'); ?>）
             </div>
 
             <div class="card box-primary">
@@ -92,8 +99,7 @@ $is_edit = !empty($event);
 
                     <div class="card-body">
 
-                        <!-- 事件类型 -->
-                        <div class="form-group">
+                        <div class="form-group compact-field-unit">
                             <label class="col-sm-2 control-label">事件类型 *</label>
                             <div class="col-sm-10">
                                 <select class="form-control" name="event_type" required>
@@ -109,8 +115,7 @@ $is_edit = !empty($event);
                             </div>
                         </div>
 
-                        <!-- 事件日期 -->
-                        <div class="form-group">
+                        <div class="form-group compact-field-unit">
                             <label class="col-sm-2 control-label">事件日期 *</label>
                             <div class="col-sm-10">
                                 <input type="date" class="form-control" name="event_date"
@@ -118,8 +123,7 @@ $is_edit = !empty($event);
                             </div>
                         </div>
 
-                        <!-- 规则模板 -->
-                        <div class="form-group">
+                        <div class="form-group compact-field-unit">
                             <label class="col-sm-2 control-label">使用规则</label>
                             <div class="col-sm-10">
                                 <select class="form-control" name="rule_id">
@@ -135,8 +139,7 @@ $is_edit = !empty($event);
                             </div>
                         </div>
 
-                        <!-- 新过期日（证件类） -->
-                        <div class="form-group">
+                        <div class="form-group compact-field-unit">
                             <label class="col-sm-2 control-label">新过期日</label>
                             <div class="col-sm-10">
                                 <input type="date" class="form-control" name="expiry_date_new"
@@ -145,8 +148,7 @@ $is_edit = !empty($event);
                             </div>
                         </div>
 
-                        <!-- 当前里程（车辆类） -->
-                        <div class="form-group">
+                        <div class="form-group compact-field-unit">
                             <label class="col-sm-2 control-label">当前里程</label>
                             <div class="col-sm-10">
                                 <input type="number" class="form-control" name="mileage_now"
@@ -155,8 +157,7 @@ $is_edit = !empty($event);
                             </div>
                         </div>
 
-                        <!-- 备注 -->
-                        <div class="form-group">
+                        <div class="form-group compact-field-unit">
                             <label class="col-sm-2 control-label">备注</label>
                             <div class="col-sm-10">
                                 <textarea class="form-control" name="note" rows="4"><?php echo htmlspecialchars($event['note'] ?? ''); ?></textarea>

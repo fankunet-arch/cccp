@@ -1,6 +1,7 @@
 <?php
 /**
  * DTS 对象详情页（时间线视图）
+ * (修复: 强制转换 object_id 为整型以避免 TypeError)
  */
 
 declare(strict_types=1);
@@ -35,8 +36,8 @@ if (!$object) {
     exit();
 }
 
-// 获取对象的当前状态
-$state = dts_get_object_state($pdo, $object_id);
+// [修复] 获取对象的当前状态 (强制转换为 int)
+$state = dts_get_object_state($pdo, (int)$object_id);
 
 // 获取对象的事件列表（按日期倒序）
 $stmt = $pdo->prepare("
@@ -67,7 +68,6 @@ $events = $stmt->fetchAll();
 
 <section class="content">
 
-    <!-- 对象基本信息 -->
     <div class="row">
         <div class="col-md-12">
             <div class="card box-info">
@@ -107,7 +107,6 @@ $events = $stmt->fetchAll();
         </div>
     </div>
 
-    <!-- 当前状态 -->
     <?php if ($state): ?>
     <div class="row">
         <div class="col-md-12">
@@ -161,7 +160,6 @@ $events = $stmt->fetchAll();
     </div>
     <?php endif; ?>
 
-    <!-- 事件时间线 -->
     <div class="row">
         <div class="col-md-12">
             <div class="card box-default">
