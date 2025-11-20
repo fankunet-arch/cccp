@@ -64,7 +64,8 @@ foreach ($objects as $obj) {
                 'object_id' => $obj['id'],
                 'object_name' => $obj['object_name'],
                 'subject_name' => $obj['subject_name'],
-                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub']
+                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub'],
+                'window_start' => $obj['next_window_start_date'] ?? null
             ];
         }
     }
@@ -135,6 +136,34 @@ if ($filter_type) {
         return $node['type'] === $filter_type;
     });
 }
+
+// 准备日历数据
+$calendar_events = [];
+foreach ($nodes as $node) {
+    $color = '#3788d8'; // default
+    if ($node['type'] === 'deadline') $color = '#dc3545'; // red
+    if ($node['type'] === 'window_start') $color = '#28a745'; // green
+    if ($node['type'] === 'cycle') $color = '#17a2b8'; // cyan
+    if ($node['type'] === 'follow_up') $color = '#17a2b8'; // cyan
+
+    $calendar_events[] = [
+        'title' => $node['subject_name'] . ' ' . $node['object_name'] . ' (' . $node['type_name'] . ')',
+        'start' => $node['date'],
+        'color' => $color,
+        'url' => CP_BASE_URL . 'dts_object_detail&id=' . $node['object_id']
+    ];
+}
+
+// 获取最近操作记录（Timeline）
+$timeline_stmt = $pdo->query("
+    SELECT e.*, o.object_name, s.subject_name
+    FROM cp_dts_event e
+    LEFT JOIN cp_dts_object o ON e.object_id = o.id
+    LEFT JOIN cp_dts_subject s ON e.subject_id = s.id
+    ORDER BY e.created_at DESC
+    LIMIT 50
+");
+$timeline_events = $timeline_stmt->fetchAll();
 
 ?>
 
@@ -224,60 +253,196 @@ if ($filter_type) {
         </div>
     </div>
 
-    <!-- 节点列表 -->
-    <div class="row">
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        var calendarEl = document.getElementById('calendar');
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+          initialView: 'dayGridMonth',
+          locale: 'zh-cn',
+          headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,listMonth'
+          },
+          buttonText: {
+            today: '今天',
+            month: '月',
+            week: '周',
+            day: '日',
+            list: '列表'
+          },
+          events: <?php echo json_encode($calendar_events); ?>,
+          eventClick: function(info) {
+              if (info.event.url) {
+                  window.location.href = info.event.url;
+                  info.jsEvent.preventDefault();
+              }
+          },
+          height: 'auto'
+        });
+
+        // 延迟渲染，解决 Tab 切换不显示问题
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+            if (e.target.getAttribute('href') === '#calendar-view') {
+                calendar.render();
+            }
+        });
+
+        // 初始化也渲染一次
+        setTimeout(function() { calendar.render(); }, 200);
+      });
+    </script>
+
+    <!-- 视图切换 Tabs -->
+    <div class="nav-tabs-custom">
+        <ul class="nav nav-tabs" role="tablist" style="margin-bottom: 15px; border-bottom: 1px solid #ddd;">
+            <li role="presentation" class="active"><a href="#calendar-view" aria-controls="calendar-view" role="tab" data-toggle="tab" style="padding: 10px 15px; display:block;">日历视图</a></li>
+            <li role="presentation"><a href="#list-view" aria-controls="list-view" role="tab" data-toggle="tab" style="padding: 10px 15px; display:block;">列表视图</a></li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- 日历视图 -->
+            <div role="tabpanel" class="tab-pane active" id="calendar-view">
+                 <div class="card box-primary">
+                    <div class="card-body">
+                        <div id='calendar'></div>
+                    </div>
+                 </div>
+            </div>
+
+            <!-- 列表视图 -->
+            <div role="tabpanel" class="tab-pane" id="list-view">
+                <div class="card box-primary">
+                    <div class="card-header with-border">
+                        <h3 class="box-title">
+                            <i class="fas fa-bell"></i> 即将到来的节点（共 <?php echo count($nodes); ?> 个）
+                        </h3>
+                    </div>
+                    <div class="card-body">
+                        <?php if (empty($nodes)): ?>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> 暂无即将到来的节点。
+                            </div>
+                        <?php else: ?>
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th width="120">日期</th>
+                                            <th width="100">类型</th>
+                                            <th width="120">紧急程度</th>
+                                            <th width="120">主体</th>
+                                            <th>对象</th>
+                                            <th width="150">分类</th>
+                                            <th width="100">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($nodes as $node): ?>
+                                            <tr class="urgency-row urgency-<?php echo $node['urgency']; ?>">
+                                                <td>
+                                                    <strong><?php echo dts_format_date($node['date'], 'Y-m-d'); ?></strong>
+                                                    <?php if ($node['type'] == 'deadline' && !empty($node['window_start'])): ?>
+                                                       <!-- 进度条 -->
+                                                       <?php
+                                                          try {
+                                                              $start = new DateTime($node['window_start']);
+                                                              $end = new DateTime($node['date']);
+                                                              $now = new DateTime();
+                                                              if ($end > $start) {
+                                                                  $total = $end->getTimestamp() - $start->getTimestamp();
+                                                                  $elapsed = $now->getTimestamp() - $start->getTimestamp();
+                                                                  $percent = ($elapsed / $total) * 100;
+                                                                  $percent = max(0, min(100, $percent));
+                                                              } else {
+                                                                  $percent = 100;
+                                                              }
+                                                          } catch (Exception $e) { $percent = 0; }
+                                                       ?>
+                                                       <?php if ($percent > 0 && $percent < 100): ?>
+                                                       <div class="progress" style="height: 6px; margin-top: 5px; margin-bottom:0; background-color: #e9ecef; border-radius: 3px;">
+                                                         <div class="progress-bar" role="progressbar" style="width: <?php echo $percent; ?>%; background-color: #28a745; height:100%; border-radius: 3px;" aria-valuenow="<?php echo $percent; ?>" aria-valuemin="0" aria-valuemax="100"></div>
+                                                       </div>
+                                                       <div style="font-size:10px; color:#666;">窗口期: <?php echo round($percent); ?>%</div>
+                                                       <?php endif; ?>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <span class="badge badge-<?php echo $node['type']; ?>">
+                                                        <?php echo $node['type_name']; ?>
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <span class="urgency-badge urgency-<?php echo $node['urgency']; ?>">
+                                                        <?php echo $node['urgency_text']; ?>
+                                                    </span>
+                                                </td>
+                                                <td><?php echo htmlspecialchars($node['subject_name']); ?></td>
+                                                <td>
+                                                    <strong><?php echo htmlspecialchars($node['object_name']); ?></strong>
+                                                </td>
+                                                <td><?php echo htmlspecialchars($node['category']); ?></td>
+                                                <td>
+                                                    <a href="<?php echo CP_BASE_URL; ?>dts_object_detail&id=<?php echo $node['object_id']; ?>"
+                                                       class="btn btn-xs btn-primary">
+                                                        <i class="fas fa-eye"></i> 查看
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 全局操作日志 -->
+    <div class="row" style="margin-top: 30px;">
         <div class="col-md-12">
-            <div class="card box-primary">
-                <div class="card-header with-border">
+            <div class="card box-info">
+                 <div class="card-header with-border">
                     <h3 class="box-title">
-                        <i class="fas fa-bell"></i> 即将到来的节点（共 <?php echo count($nodes); ?> 个）
+                        <i class="fas fa-history"></i> 最近操作记录 (Global Timeline)
                     </h3>
                 </div>
                 <div class="card-body">
-                    <?php if (empty($nodes)): ?>
-                        <div class="alert alert-info">
-                            <i class="fas fa-info-circle"></i> 暂无即将到来的节点。
-                        </div>
+                    <?php if (empty($timeline_events)): ?>
+                        <div class="alert alert-info">暂无历史记录</div>
                     <?php else: ?>
                         <div class="table-responsive">
-                            <table class="table table-bordered table-hover">
+                            <table class="table table-striped table-hover">
                                 <thead>
                                     <tr>
-                                        <th width="120">日期</th>
-                                        <th width="100">类型</th>
-                                        <th width="120">紧急程度</th>
+                                        <th width="150">时间</th>
                                         <th width="120">主体</th>
-                                        <th>对象</th>
-                                        <th width="150">分类</th>
-                                        <th width="100">操作</th>
+                                        <th width="200">对象</th>
+                                        <th width="150">事件类型</th>
+                                        <th>详情/备注</th>
+                                        <th width="80">状态</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($nodes as $node): ?>
-                                        <tr class="urgency-row urgency-<?php echo $node['urgency']; ?>">
+                                    <?php foreach ($timeline_events as $ev): ?>
+                                        <tr>
+                                            <td><?php echo substr($ev['created_at'], 0, 16); ?></td>
+                                            <td><?php echo htmlspecialchars($ev['subject_name']); ?></td>
+                                            <td><?php echo htmlspecialchars($ev['object_name']); ?></td>
+                                            <td><?php echo htmlspecialchars($ev['event_type']); ?></td>
                                             <td>
-                                                <strong><?php echo dts_format_date($node['date'], 'Y-m-d'); ?></strong>
+                                                <?php
+                                                    $details = [];
+                                                    if ($ev['mileage_now']) $details[] = "里程: {$ev['mileage_now']}km";
+                                                    if ($ev['note']) $details[] = $ev['note'];
+                                                    echo implode(' | ', $details);
+                                                ?>
                                             </td>
                                             <td>
-                                                <span class="badge badge-<?php echo $node['type']; ?>">
-                                                    <?php echo $node['type_name']; ?>
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span class="urgency-badge urgency-<?php echo $node['urgency']; ?>">
-                                                    <?php echo $node['urgency_text']; ?>
-                                                </span>
-                                            </td>
-                                            <td><?php echo htmlspecialchars($node['subject_name']); ?></td>
-                                            <td>
-                                                <strong><?php echo htmlspecialchars($node['object_name']); ?></strong>
-                                            </td>
-                                            <td><?php echo htmlspecialchars($node['category']); ?></td>
-                                            <td>
-                                                <a href="<?php echo CP_BASE_URL; ?>dts_object_detail&id=<?php echo $node['object_id']; ?>"
-                                                   class="btn btn-xs btn-primary">
-                                                    <i class="fas fa-eye"></i> 查看
-                                                </a>
+                                                <span class="badge badge-success">完成</span>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

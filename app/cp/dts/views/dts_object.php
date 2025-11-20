@@ -62,10 +62,15 @@ $sql = "
     SELECT o.*,
            s.subject_name,
            s.subject_type,
+           st.next_deadline_date,
+           st.next_window_start_date,
+           st.next_cycle_date,
+           st.next_follow_up_date,
            COUNT(DISTINCT e.id) as event_count
     FROM cp_dts_object o
     LEFT JOIN cp_dts_subject s ON o.subject_id = s.id
     LEFT JOIN cp_dts_event e ON o.id = e.object_id
+    LEFT JOIN cp_dts_object_state st ON o.id = st.object_id
     {$where_sql}
     GROUP BY o.id
     ORDER BY o.active_flag DESC, o.id DESC
@@ -181,6 +186,7 @@ $objects = $stmt->fetchAll();
                                         <th width="100">大类</th>
                                         <th width="100">小类</th>
                                         <th width="150">标识</th>
+                                        <th width="120">下次节点</th>
                                         <th width="80">状态</th>
                                         <th width="80">事件数</th>
                                         <th width="200">操作</th>
@@ -188,7 +194,39 @@ $objects = $stmt->fetchAll();
                                 </thead>
                                 <tbody>
                                     <?php foreach ($objects as $obj): ?>
-                                        <tr class="<?php echo $obj['active_flag'] == 0 ? 'disabled-row' : ''; ?>">
+                                        <?php
+                                            // 确定要显示的下一个节点
+                                            $next_date = null;
+                                            $date_label = '';
+                                            $urgency_class = '';
+                                            $days_text = '';
+
+                                            if (!empty($obj['next_deadline_date'])) {
+                                                $next_date = $obj['next_deadline_date'];
+                                                $date_label = '截止';
+                                                $urgency_class = dts_get_urgency_class($next_date);
+                                            } elseif (!empty($obj['next_cycle_date'])) {
+                                                $next_date = $obj['next_cycle_date'];
+                                                $date_label = '周期';
+                                                $urgency_class = dts_get_urgency_class($next_date);
+                                            } elseif (!empty($obj['next_follow_up_date'])) {
+                                                $next_date = $obj['next_follow_up_date'];
+                                                $date_label = '跟进';
+                                                $urgency_class = dts_get_urgency_class($next_date);
+                                            }
+
+                                            if ($next_date) {
+                                                $days_left = dts_days_from_today($next_date);
+                                                if ($days_left < 0) {
+                                                    $days_text = "已过 " . abs($days_left) . " 天";
+                                                } elseif ($days_left == 0) {
+                                                    $days_text = "今天";
+                                                } else {
+                                                    $days_text = "剩 {$days_left} 天";
+                                                }
+                                            }
+                                        ?>
+                                        <tr class="<?php echo $obj['active_flag'] == 0 ? 'disabled-row' : ''; ?> urgency-row urgency-<?php echo $urgency_class; ?>">
                                             <td><?php echo (int)$obj['id']; ?></td>
                                             <td>
                                                 <a href="<?php echo CP_BASE_URL; ?>dts_object&subject_id=<?php echo (int)$obj['subject_id']; ?>">
@@ -201,6 +239,19 @@ $objects = $stmt->fetchAll();
                                             <td><?php echo htmlspecialchars($obj['object_type_main']); ?></td>
                                             <td><?php echo $obj['object_type_sub'] ? htmlspecialchars($obj['object_type_sub']) : '<span style="color:#999;">—</span>'; ?></td>
                                             <td><?php echo htmlspecialchars((string)($obj['identifier'] ?? '')) ?: '—'; ?></td>
+                                            <td>
+                                                <?php if ($next_date): ?>
+                                                    <div style="font-size:12px;">
+                                                        <span class="label label-default"><?php echo $date_label; ?></span>
+                                                        <?php echo $next_date; ?>
+                                                    </div>
+                                                    <div style="font-weight:bold; <?php echo $urgency_class === 'danger' ? 'color:red;' : ($urgency_class === 'warning' ? 'color:orange;' : 'color:green;'); ?>">
+                                                        <?php echo $days_text; ?>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <span style="color:#ccc;">无计划</span>
+                                                <?php endif; ?>
+                                            </td>
                                             <td>
                                                 <?php if ($obj['active_flag'] == 1): ?>
                                                     <span class="badge badge-success">使用中</span>
