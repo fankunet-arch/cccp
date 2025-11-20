@@ -46,7 +46,6 @@ $tea_actions = [
 // DTS 模块的 action 列表
 $dts_actions = [
     'dts_main',
-    'dts_quick',
     'dts_subject',
     'dts_subject_save',
     'dts_subject_get_data',
@@ -57,7 +56,11 @@ $dts_actions = [
     'dts_rule',
     'dts_ev_edit',
     'dts_ev_save',
-    'dts_ev_del',
+    'dts_event_form',
+    'dts_event_save',
+    'dts_quick',
+    'dts_quick_add',
+    'dts_quick_save',
     'dts_category_manage',
     'dts_category_save',
 ];
@@ -182,11 +185,6 @@ if ($is_som_active) {
 
                 <ul class="treeview-menu" style="display: <?php echo $is_dts_active ? 'block' : 'none'; ?>;">
                     <li class="nav-item">
-                        <a href="<?php echo CP_BASE_URL; ?>dts_quick" class="nav-link <?php echo isActive('dts_quick', $current_action); ?>">
-                            <i class="fas fa-shipping-fast"></i> 极速录入
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a href="<?php echo CP_BASE_URL; ?>dts_main" class="nav-link <?php echo isActive('dts_main', $current_action); ?>">
                             <i class="far fa-circle"></i> DTS 总览
                         </a>
@@ -199,6 +197,11 @@ if ($is_som_active) {
                     <li class="nav-item">
                         <a href="<?php echo CP_BASE_URL; ?>dts_object" class="nav-link <?php echo isActive('dts_object', $current_action); ?>">
                             <i class="far fa-circle"></i> 对象管理
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="<?php echo CP_BASE_URL; ?>dts_quick" class="nav-link <?php echo isActive(['dts_quick','dts_quick_add','dts_quick_save'], $current_action); ?>">
+                            <i class="far fa-circle"></i> 极速录入
                         </a>
                     </li>
                     <li class="nav-item">

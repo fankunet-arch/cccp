@@ -18,9 +18,16 @@ if (!defined('BASE_PATH')) {
 if (!defined('APP_PATH_CP')) {
     define('APP_PATH_CP', BASE_PATH . '/app/cp');
 }
-// [修复] 确保 CP_BASE_URL 指向正确的 /cp/ 目录
 if (!defined('CP_BASE_URL')) {
-    define('CP_BASE_URL', '/cp/index.php?action=');
+    // 根据实际入口脚本 (dc_html/cp/index.php) 计算 /cp 前缀，避免生成到根目录的错误链接
+    $script_name = $_SERVER['SCRIPT_NAME'] ?? '/cp/index.php';
+    $script_dir = str_replace('\\', '/', dirname($script_name));
+    if ($script_dir === '/' || $script_dir === '.') {
+        $script_dir = '';
+    }
+    $script_dir = rtrim($script_dir, '/');
+    $base_uri = $script_dir ? $script_dir : '';
+    define('CP_BASE_URL', $base_uri . '/index.php?action=');
 }
 
 
@@ -45,7 +52,22 @@ if ($config['app_debug']) {
 
 // 4. 创建全局 PDO 连接
 $db_config = $config['db'];
-$dsn = "mysql:host={$db_config['host']};port={$db_config['port']};dbname={$db_config['name']};charset={$db_config['charset']}";
+$custom_dsn = getenv('CP_CUSTOM_DSN');
+if ($custom_dsn) {
+    $dsn = $custom_dsn;
+    $db_user = getenv('CP_CUSTOM_DB_USER');
+    $db_pass = getenv('CP_CUSTOM_DB_PASS');
+    if ($db_user === false) {
+        $db_user = '';
+    }
+    if ($db_pass === false) {
+        $db_pass = '';
+    }
+} else {
+    $dsn = "mysql:host={$db_config['host']};port={$db_config['port']};dbname={$db_config['name']};charset={$db_config['charset']}";
+    $db_user = $db_config['user'];
+    $db_pass = $db_config['pass'];
+}
 $options = [
     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -54,7 +76,16 @@ $options = [
 
 try {
     // 将 $pdo 定义为全局变量，以便在后续的 action 和 view 中使用
-    $pdo = new PDO($dsn, $db_config['user'], $db_config['pass'], $options);
+    $pdo = new PDO($dsn, (string)$db_user, (string)$db_pass, $options);
+    $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+    if ($driver === 'sqlite') {
+        $pdo->exec('PRAGMA foreign_keys = ON');
+        if (method_exists($pdo, 'sqliteCreateFunction')) {
+            $pdo->sqliteCreateFunction('NOW', static function (): string {
+                return date('Y-m-d H:i:s');
+            });
+        }
+    }
 } catch (\PDOException $e) {
     error_log('Database Connection Error: ' . $e->getMessage());
     die('数据库连接失败，请联系管理员。');
