@@ -320,6 +320,9 @@ if ($feedback) {
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
+                                <div class="field-hint" style="margin-top: 5px; font-size: 0.9em; color: #888;">
+                                    <i class="fas fa-info-circle"></i> 若不选择，系统将自动尝试匹配分类默认规则（如存在）。
+                                </div>
                             </div>
                             <?php endif; ?>
 
@@ -449,9 +452,6 @@ if ($feedback) {
             $(mileageArea).css('display', 'flex').hide().slideDown(200);
         } else {
             $(mileageArea).slideUp(200);
-            // Don't clear value if in edit mode and value exists? No, business logic says mileage only for cars.
-            // But if I mistakenly changed catMain and change back, value is lost.
-            // mileageArea.querySelector('input').value = '';
         }
 
         if (main === '证件') {

@@ -1,7 +1,7 @@
 <?php
 /**
  * DTS (Date Timeline System) 通用函数库
- * [完整修复版] 
+ * [完整修复版]
  * 1. 修复极速录入无规则时不更新截止日的问题
  * 2. 保留所有辅助函数 (urgency, categories等)
  */
@@ -96,6 +96,15 @@ function dts_calculate_nodes(array $rule, string $base_date, ?int $current_milea
         return [];
     }
 
+    // --- T03: Lock-in 轨计算 (通用) ---
+    // 如果规则定义了 lock_days，则计算锁定截止日
+    // 逻辑：锁定截止日 = 基准日 + lock_days
+    if (!empty($rule['lock_days']) && $rule['lock_days'] > 0) {
+        $lock_dt = clone $base_dt;
+        $lock_dt->modify("+{$rule['lock_days']} days");
+        $nodes['locked_until_date'] = $lock_dt->format('Y-m-d');
+    }
+
     // 1. 证件类（expiry_based）：基于过期日计算窗口
     if ($rule['rule_type'] === 'expiry_based') {
         // 截止日就是过期日本身
@@ -137,6 +146,8 @@ function dts_calculate_nodes(array $rule, string $base_date, ?int $current_milea
         }
 
         $nodes['cycle_next_date'] = $next_dt->format('Y-m-d');
+        // 对于周期类任务，deadline 通常就是下次周期日
+        $nodes['deadline_date'] = $nodes['cycle_next_date'];
 
         // 如果有里程间隔，计算建议里程
         if ($rule['mileage_interval'] !== null && $current_mileage !== null) {
@@ -158,6 +169,8 @@ function dts_calculate_nodes(array $rule, string $base_date, ?int $current_milea
         }
 
         $nodes['follow_up_date'] = $follow_dt->format('Y-m-d');
+        // 跟进日也可视为一种 deadline
+        $nodes['deadline_date'] = $nodes['follow_up_date'];
     }
 
     return $nodes;
@@ -206,6 +219,7 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
                 'mileage_interval' => $latest_event['mileage_interval'],
                 'follow_up_offset_days' => $latest_event['follow_up_offset_days'],
                 'follow_up_offset_months' => $latest_event['follow_up_offset_months'],
+                'lock_days' => $latest_event['lock_days'] ?? null, // T03: Added lock_days
             ];
 
             // 确定基准日期
@@ -223,11 +237,50 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
                 $nodes = dts_calculate_nodes($rule, $base_date, (int)$latest_event['mileage_now']);
             }
         }
-        
+
         // 情况B：[极速录入兼容] 无规则，但事件里直接填了“新过期日”
         // 此时直接把这个过期日当做 deadline，不计算窗口期
         if (empty($nodes['deadline_date']) && !empty($latest_event['expiry_date_new'])) {
             $nodes['deadline_date'] = $latest_event['expiry_date_new'];
+        }
+
+        // T03 Default Fallback: Try to find a default rule if no rule was applied but we have object info
+        if (empty($nodes) && empty($latest_event['rule_id'])) {
+             // Fetch object category to look for default rules
+             $o_stmt = $pdo->prepare("SELECT object_type_main, object_type_sub FROM cp_dts_object WHERE id = ?");
+             $o_stmt->execute([$object_id]);
+             $obj_info = $o_stmt->fetch(PDO::FETCH_ASSOC);
+
+             if ($obj_info) {
+                 // Look for default rule (heuristic: find first rule matching category)
+                 // This is a simple "Default Parameter" implementation as requested.
+                 // Prioritize exact sub-category match, then main category match.
+                 $def_rule_stmt = $pdo->prepare("
+                    SELECT * FROM cp_dts_rule
+                    WHERE (cat_main = ? OR cat_main = 'ALL')
+                    AND (cat_sub = ? OR cat_sub IS NULL OR cat_sub = '')
+                    AND rule_status = 1
+                    ORDER BY cat_sub DESC, id DESC LIMIT 1
+                 ");
+                 $def_rule_stmt->execute([$obj_info['object_type_main'], $obj_info['object_type_sub']]);
+                 $default_rule = $def_rule_stmt->fetch(PDO::FETCH_ASSOC);
+
+                 if ($default_rule) {
+                      // Determine base date from event data based on rule type
+                      $base_date = null;
+                      if ($default_rule['rule_type'] === 'expiry_based' && !empty($latest_event['expiry_date_new'])) {
+                          $base_date = $latest_event['expiry_date_new'];
+                      } elseif ($default_rule['rule_type'] === 'last_done_based') {
+                          $base_date = $latest_event['event_date'];
+                      } elseif ($default_rule['rule_type'] === 'submit_based') {
+                          $base_date = $latest_event['event_date'];
+                      }
+
+                      if ($base_date) {
+                          $nodes = dts_calculate_nodes($default_rule, $base_date, (int)$latest_event['mileage_now']);
+                      }
+                 }
+             }
         }
 
         // 3. 更新或插入状态表
@@ -239,6 +292,7 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
         $data_params = [
             ':object_id' => $object_id,
             ':deadline' => $nodes['deadline_date'] ?? null,
+            ':locked_until' => $nodes['locked_until_date'] ?? null, // T03: New field
             ':window_start' => $nodes['window_start_date'] ?? null,
             ':window_end' => $nodes['window_end_date'] ?? null,
             ':cycle' => $nodes['cycle_next_date'] ?? null,
@@ -252,6 +306,7 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
             $stmt = $pdo->prepare("
                 UPDATE cp_dts_object_state SET
                     next_deadline_date = :deadline,
+                    locked_until_date = :locked_until,
                     next_window_start_date = :window_start,
                     next_window_end_date = :window_end,
                     next_cycle_date = :cycle,
@@ -265,9 +320,9 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
             // 插入
             $stmt = $pdo->prepare("
                 INSERT INTO cp_dts_object_state
-                (object_id, next_deadline_date, next_window_start_date, next_window_end_date,
+                (object_id, next_deadline_date, locked_until_date, next_window_start_date, next_window_end_date,
                  next_cycle_date, next_follow_up_date, next_mileage_suggest, last_event_id, last_updated_at)
-                VALUES (:object_id, :deadline, :window_start, :window_end, :cycle, :follow_up, :mileage, :event_id, NOW())
+                VALUES (:object_id, :deadline, :locked_until, :window_start, :window_end, :cycle, :follow_up, :mileage, :event_id, NOW())
             ");
         }
 
@@ -433,4 +488,109 @@ function dts_get_feedback(): ?array {
         return $feedback;
     }
     return null;
+}
+
+/**
+ * 统一保存对象（包含主体处理逻辑）
+ *
+ * @param PDO $pdo 数据库连接
+ * @param int|null $subject_id 主体ID（如果已知）
+ * @param string $object_name 对象名称
+ * @param array $params 包含 subject_name, subject_type (可选), cat_main, cat_sub
+ * @return array ['subject_id' => int, 'object_id' => int]
+ * @throws Exception
+ */
+function dts_save_object(PDO $pdo, ?int $subject_id, string $object_name, array $params): array {
+    // --- 1. 处理主体 (Subject) ---
+    $subject_name_input = trim($params['subject_name'] ?? '');
+
+    if (empty($subject_id)) {
+        if (empty($subject_name_input)) {
+            throw new Exception("Subject ID or Name is required.");
+        }
+
+        // 前端没ID，说明是新名字。双重检查数据库是否真有同名
+        $stmt = $pdo->prepare("SELECT id FROM cp_dts_subject WHERE subject_name = ? LIMIT 1");
+        $stmt->execute([$subject_name_input]);
+        $exist_subj = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($exist_subj) {
+            $subject_id = (int)$exist_subj['id'];
+        } else {
+            // 真没有，创建新主体
+            $new_type = $params['subject_type'] ?? 'person';
+            $stmt_new_s = $pdo->prepare("INSERT INTO cp_dts_subject (subject_name, subject_type, subject_status, created_at, updated_at) VALUES (?, ?, 1, NOW(), NOW())");
+            $stmt_new_s->execute([$subject_name_input, $new_type]);
+            $subject_id = (int)$pdo->lastInsertId();
+        }
+    }
+
+    // --- 2. 处理对象 (Object) ---
+    $object_name = trim($object_name);
+    if (empty($object_name)) {
+        throw new Exception("Object Name is required.");
+    }
+
+    $cat_main = trim($params['cat_main'] ?? '');
+    $cat_sub = trim($params['cat_sub'] ?? '');
+
+    // 在该主体下查找是否已有该对象
+    $stmt_obj = $pdo->prepare("SELECT id FROM cp_dts_object WHERE subject_id = ? AND object_name = ? LIMIT 1");
+    $stmt_obj->execute([$subject_id, $object_name]);
+    $exist_obj = $stmt_obj->fetch(PDO::FETCH_ASSOC);
+
+    $object_id = null;
+    if ($exist_obj) {
+        $object_id = (int)$exist_obj['id'];
+        // 可选：如果老对象没有分类，顺便更新一下分类？这里暂不覆盖，以老数据为准
+    } else {
+        // 创建新对象
+        $stmt_new_o = $pdo->prepare("INSERT INTO cp_dts_object (subject_id, object_name, object_type_main, object_type_sub, active_flag, created_at, updated_at) VALUES (?, ?, ?, ?, 1, NOW(), NOW())");
+        // cat_sub 为空则存 NULL
+        $stmt_new_o->execute([$subject_id, $object_name, $cat_main, $cat_sub ?: null]);
+        $object_id = (int)$pdo->lastInsertId();
+    }
+
+    return ['subject_id' => $subject_id, 'object_id' => $object_id];
+}
+
+/**
+ * 统一保存事件（包含状态更新）
+ *
+ * @param PDO $pdo 数据库连接
+ * @param int $object_id 对象ID
+ * @param array $params 包含 event_id (可选), subject_id, event_type, event_date, rule_id, note, mileage_now, expiry_date_new
+ * @return int Event ID
+ * @throws Exception
+ */
+function dts_save_event(PDO $pdo, int $object_id, array $params): int {
+    $event_id = $params['event_id'] ?? null;
+    $subject_id = $params['subject_id'] ?? null;
+    $event_type = $params['event_type'] ?? '';
+    $event_date = $params['event_date'] ?? '';
+
+    if (empty($object_id) || empty($subject_id) || empty($event_type) || empty($event_date)) {
+        throw new Exception("Missing required event fields (object, subject, type, date).");
+    }
+
+    $rule_id = !empty($params['rule_id']) ? $params['rule_id'] : null;
+    $mileage_now = !empty($params['mileage_now']) ? $params['mileage_now'] : null;
+    $expiry_date_new = !empty($params['expiry_date_new']) ? $params['expiry_date_new'] : null;
+    $note = trim($params['note'] ?? '');
+
+    if ($event_id) {
+        // UPDATE
+        $stmt_ev = $pdo->prepare("UPDATE cp_dts_event SET object_id=?, subject_id=?, rule_id=?, event_type=?, event_date=?, mileage_now=?, expiry_date_new=?, note=?, updated_at=NOW() WHERE id=?");
+        $stmt_ev->execute([$object_id, $subject_id, $rule_id, $event_type, $event_date, $mileage_now, $expiry_date_new, $note, $event_id]);
+    } else {
+        // INSERT
+        $stmt_ev = $pdo->prepare("INSERT INTO cp_dts_event (object_id, subject_id, rule_id, event_type, event_date, mileage_now, expiry_date_new, note, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', NOW(), NOW())");
+        $stmt_ev->execute([$object_id, $subject_id, $rule_id, $event_type, $event_date, $mileage_now, $expiry_date_new, $note]);
+        $event_id = (int)$pdo->lastInsertId();
+    }
+
+    // --- 触发状态计算 ---
+    dts_update_object_state($pdo, (int)$object_id);
+
+    return (int)$event_id;
 }

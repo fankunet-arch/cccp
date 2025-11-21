@@ -116,6 +116,22 @@ $events = $stmt->fetchAll();
                 </div>
                 <div class="card-body">
                     <div class="row">
+                        <!-- T04: Lock-in Status Display -->
+                        <?php
+                        if (!empty($state['locked_until_date'])):
+                            $lock_end_dt = new DateTime($state['locked_until_date']);
+                            $today_dt = new DateTime('today');
+                            $is_locked = ($lock_end_dt >= $today_dt);
+                        ?>
+                        <div class="col-md-4">
+                            <div class="alert" style="background-color: <?php echo $is_locked ? '#f39c12' : '#d2d6de'; ?>; color: #fff;">
+                                <strong><?php echo $is_locked ? '<i class="fas fa-lock"></i> 锁定中' : '<i class="fas fa-lock-open"></i> 已解锁'; ?></strong><br>
+                                解锁日期：<?php echo dts_format_date($state['locked_until_date']); ?><br>
+                                <small><?php echo $is_locked ? '在此之前不建议操作' : '可以进行后续操作'; ?></small>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
                         <?php if ($state['next_deadline_date']): ?>
                         <div class="col-md-4">
                             <div class="alert alert-<?php echo dts_get_urgency_class($state['next_deadline_date']); ?>">

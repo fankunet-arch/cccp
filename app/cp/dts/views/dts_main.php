@@ -51,6 +51,27 @@ $future_date = (clone $today)->modify("+{$filter_days} days");
 $nodes = [];
 
 foreach ($objects as $obj) {
+    // T04: 展示 Lock-in 状态
+    // 如果对象处于锁定期，且锁定截止日在筛选范围内，则展示“解锁日”
+    if (!empty($obj['locked_until_date'])) {
+        $lock_end_date = new DateTime($obj['locked_until_date']);
+        $today_dt = new DateTime('today');
+
+        if ($lock_end_date >= $today_dt && $lock_end_date <= $future_date) {
+             $nodes[] = [
+                'date' => $obj['locked_until_date'],
+                'type' => 'lock', // visual type
+                'type_name' => '解锁日',
+                'urgency' => 'info',
+                'urgency_text' => '锁定中',
+                'object_id' => $obj['id'],
+                'object_name' => $obj['object_name'],
+                'subject_name' => $obj['subject_name'],
+                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub']
+            ];
+        }
+    }
+
     // 截止日
     if ($obj['next_deadline_date']) {
         $node_date = new DateTime($obj['next_deadline_date']);
@@ -245,7 +266,7 @@ if ($filter_type) {
                                     <tr>
                                         <th width="120">日期</th>
                                         <th width="100">类型</th>
-                                        <th width="120">紧急程度</th>
+                                        <th width="120">状态/紧急度</th>
                                         <th width="120">主体</th>
                                         <th>对象</th>
                                         <th width="150">分类</th>
@@ -259,9 +280,13 @@ if ($filter_type) {
                                                 <strong><?php echo dts_format_date($node['date'], 'Y-m-d'); ?></strong>
                                             </td>
                                             <td>
-                                                <span class="badge badge-<?php echo $node['type']; ?>">
-                                                    <?php echo $node['type_name']; ?>
-                                                </span>
+                                                <?php if($node['type'] === 'lock'): ?>
+                                                    <span class="badge" style="background-color:#777;"><i class="fas fa-lock"></i> <?php echo $node['type_name']; ?></span>
+                                                <?php else: ?>
+                                                    <span class="badge badge-<?php echo $node['type']; ?>">
+                                                        <?php echo $node['type_name']; ?>
+                                                    </span>
+                                                <?php endif; ?>
                                             </td>
                                             <td>
                                                 <span class="urgency-badge urgency-<?php echo $node['urgency']; ?>">
