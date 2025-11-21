@@ -1,10 +1,10 @@
 <?php
 /**
- * DTS 极速录入保存 (Smart Save)
+ * DTS 极速录入保存 (Smart Save) - Unified Action
  * 逻辑：
  * 1. 检查主体：有ID用ID；无ID则按名字创建新主体。
  * 2. 检查对象：在主体下查找同名对象。有则用；无则创建新对象。
- * 3. 保存事件：写入事件表，并更新对象状态。
+ * 3. 保存事件：如果是更新则 UPDATE，否则 INSERT。
  */
 
 declare(strict_types=1);
@@ -20,15 +20,15 @@ try {
     $pdo->beginTransaction();
 
     // --- 1. 处理主体 (Subject) ---
-    $subject_id = dts_post('subject_id'); // 如果前端匹配到了，这里会有值
+    $subject_id = dts_post('subject_id');
     $subject_name_input = trim(dts_post('subject_name_input', ''));
-    
+
     if (empty($subject_id)) {
         // 前端没ID，说明是新名字。双重检查数据库是否真有同名（防止前端没加载全）
         $stmt = $pdo->prepare("SELECT id FROM cp_dts_subject WHERE subject_name = ? LIMIT 1");
         $stmt->execute([$subject_name_input]);
         $exist_subj = $stmt->fetch();
-        
+
         if ($exist_subj) {
             $subject_id = $exist_subj['id'];
         } else {
@@ -44,7 +44,7 @@ try {
     $object_name = trim(dts_post('object_name', ''));
     $cat_main = trim(dts_post('cat_main', ''));
     $cat_sub = trim(dts_post('cat_sub', ''));
-    
+
     // 在该主体下查找是否已有该对象
     $stmt_obj = $pdo->prepare("SELECT id FROM cp_dts_object WHERE subject_id = ? AND object_name = ? LIMIT 1");
     $stmt_obj->execute([$subject_id, $object_name]);
@@ -63,31 +63,50 @@ try {
     }
 
     // --- 3. 保存事件 (Event) ---
+    $event_id = dts_post('event_id');
     $event_date = dts_post('event_date');
     $event_type = dts_post('event_type');
     $mileage = dts_post('mileage_now') ?: null;
     $expiry = dts_post('expiry_date_new') ?: null;
     $note = trim(dts_post('note', ''));
+    $rule_id = dts_post('rule_id') ?: null;
 
-    $stmt_ev = $pdo->prepare("INSERT INTO cp_dts_event (object_id, subject_id, event_type, event_date, mileage_now, expiry_date_new, note, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', NOW(), NOW())");
-    $stmt_ev->execute([$object_id, $subject_id, $event_type, $event_date, $mileage, $expiry, $note]);
+    if ($event_id) {
+        // UPDATE
+        $stmt_ev = $pdo->prepare("UPDATE cp_dts_event SET object_id=?, subject_id=?, rule_id=?, event_type=?, event_date=?, mileage_now=?, expiry_date_new=?, note=?, updated_at=NOW() WHERE id=?");
+        $stmt_ev->execute([$object_id, $subject_id, $rule_id, $event_type, $event_date, $mileage, $expiry, $note, $event_id]);
+        dts_set_feedback('success', "记录已更新！(主体: {$subject_name_input} - 对象: {$object_name})");
+    } else {
+        // INSERT
+        $stmt_ev = $pdo->prepare("INSERT INTO cp_dts_event (object_id, subject_id, rule_id, event_type, event_date, mileage_now, expiry_date_new, note, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', NOW(), NOW())");
+        $stmt_ev->execute([$object_id, $subject_id, $rule_id, $event_type, $event_date, $mileage, $expiry, $note]);
+        dts_set_feedback('success', "记录已保存！(主体: {$subject_name_input} - 对象: {$object_name})");
+    }
 
     // --- 4. 触发状态计算 ---
     dts_update_object_state($pdo, (int)$object_id);
 
     $pdo->commit();
-    dts_set_feedback('success', "记录已保存！(主体: {$subject_name_input} - 对象: {$object_name})");
-    
-    // [修正] 路由名称统一为 dts_quick
-    header('Location: ' . CP_BASE_URL . 'dts_quick');
+
+    // --- 5. 跳转 ---
+    $redirect_url = dts_post('redirect_url');
+    if ($redirect_url) {
+        header('Location: ' . $redirect_url);
+    } else {
+        header('Location: ' . CP_BASE_URL . 'dts_quick');
+    }
     exit();
 
 } catch (Exception $e) {
     $pdo->rollBack();
     error_log("DTS Quick Save Error: " . $e->getMessage());
     dts_set_feedback('danger', '保存失败：' . $e->getMessage());
-    
-    // [修正] 路由名称统一为 dts_quick
-    header('Location: ' . CP_BASE_URL . 'dts_quick');
+
+    $redirect_url = dts_post('redirect_url');
+    if ($redirect_url) {
+         header('Location: ' . $redirect_url);
+    } else {
+         header('Location: ' . CP_BASE_URL . 'dts_quick');
+    }
     exit();
 }

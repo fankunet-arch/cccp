@@ -1,8 +1,9 @@
 <?php
 /**
  * DTS (Date Timeline System) 通用函数库
- *
- * 提供 DTS 模块的核心功能函数
+ * [完整修复版] 
+ * 1. 修复极速录入无规则时不更新截止日的问题
+ * 2. 保留所有辅助函数 (urgency, categories等)
  */
 
 declare(strict_types=1);
@@ -40,6 +41,8 @@ function dts_load_categories(): array {
             if (!empty($main_cat)) {
                 $sub_cats = [];
                 if (!empty($sub_cats_str)) {
+                    // 兼容中文逗号
+                    $sub_cats_str = str_replace('，', ',', $sub_cats_str);
                     $sub_cats = array_map('trim', explode(',', $sub_cats_str));
                     $sub_cats = array_filter($sub_cats); // 移除空值
                 }
@@ -87,7 +90,11 @@ function dts_calculate_nodes(array $rule, string $base_date, ?int $current_milea
         return $nodes;
     }
 
-    $base_dt = new DateTime($base_date);
+    try {
+        $base_dt = new DateTime($base_date);
+    } catch (Exception $e) {
+        return [];
+    }
 
     // 1. 证件类（expiry_based）：基于过期日计算窗口
     if ($rule['rule_type'] === 'expiry_based') {
@@ -158,14 +165,14 @@ function dts_calculate_nodes(array $rule, string $base_date, ?int $current_milea
 
 /**
  * 更新对象的当前状态
- *
- * @param PDO $pdo 数据库连接
+ * [核心逻辑]：每次事件保存后调用，计算该对象接下来的重要日期
+ * * @param PDO $pdo 数据库连接
  * @param int $object_id 对象ID
  * @return bool 成功返回 true
  */
 function dts_update_object_state(PDO $pdo, int $object_id): bool {
     try {
-        // 1. 获取该对象的最新事件（按日期倒序）
+        // 1. 获取该对象的最新“已完成”事件（按日期倒序）
         $stmt = $pdo->prepare("
             SELECT e.*, r.*
             FROM cp_dts_event e
@@ -175,7 +182,7 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
             LIMIT 1
         ");
         $stmt->execute([$object_id]);
-        $latest_event = $stmt->fetch();
+        $latest_event = $stmt->fetch(PDO::FETCH_ASSOC); // 显式关联数组
 
         if (!$latest_event) {
             // 如果没有事件，清空状态
@@ -186,7 +193,8 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
         // 2. 根据事件和规则计算节点
         $nodes = [];
 
-        if ($latest_event['rule_id'] && !empty($latest_event['rule_type'])) {
+        // 情况A：有规则关联，按规则计算
+        if (!empty($latest_event['rule_id']) && !empty($latest_event['rule_type'])) {
             $rule = [
                 'rule_type' => $latest_event['rule_type'],
                 'base_field' => $latest_event['base_field'],
@@ -211,14 +219,33 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
             }
 
             if ($base_date) {
-                $nodes = dts_calculate_nodes($rule, $base_date, $latest_event['mileage_now']);
+                // 里程数转int处理
+                $nodes = dts_calculate_nodes($rule, $base_date, (int)$latest_event['mileage_now']);
             }
+        }
+        
+        // 情况B：[极速录入兼容] 无规则，但事件里直接填了“新过期日”
+        // 此时直接把这个过期日当做 deadline，不计算窗口期
+        if (empty($nodes['deadline_date']) && !empty($latest_event['expiry_date_new'])) {
+            $nodes['deadline_date'] = $latest_event['expiry_date_new'];
         }
 
         // 3. 更新或插入状态表
+        // 先检查是否存在
         $state_stmt = $pdo->prepare("SELECT id FROM cp_dts_object_state WHERE object_id = ?");
         $state_stmt->execute([$object_id]);
         $state_row = $state_stmt->fetch();
+
+        $data_params = [
+            ':object_id' => $object_id,
+            ':deadline' => $nodes['deadline_date'] ?? null,
+            ':window_start' => $nodes['window_start_date'] ?? null,
+            ':window_end' => $nodes['window_end_date'] ?? null,
+            ':cycle' => $nodes['cycle_next_date'] ?? null,
+            ':follow_up' => $nodes['follow_up_date'] ?? null,
+            ':mileage' => $nodes['next_mileage_suggest'] ?? null,
+            ':event_id' => $latest_event['id']
+        ];
 
         if ($state_row) {
             // 更新
@@ -244,16 +271,7 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
             ");
         }
 
-        $stmt->execute([
-            ':object_id' => $object_id,
-            ':deadline' => $nodes['deadline_date'] ?? null,
-            ':window_start' => $nodes['window_start_date'] ?? null,
-            ':window_end' => $nodes['window_end_date'] ?? null,
-            ':cycle' => $nodes['cycle_next_date'] ?? null,
-            ':follow_up' => $nodes['follow_up_date'] ?? null,
-            ':mileage' => $nodes['next_mileage_suggest'] ?? null,
-            ':event_id' => $latest_event['id']
-        ]);
+        $stmt->execute($data_params);
 
         return true;
 
@@ -273,7 +291,7 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
 function dts_get_object_state(PDO $pdo, int $object_id): ?array {
     $stmt = $pdo->prepare("SELECT * FROM cp_dts_object_state WHERE object_id = ?");
     $stmt->execute([$object_id]);
-    $state = $stmt->fetch();
+    $state = $stmt->fetch(PDO::FETCH_ASSOC);
 
     return $state ?: null;
 }
@@ -285,7 +303,7 @@ function dts_get_object_state(PDO $pdo, int $object_id): ?array {
  * @param string $format 格式（默认 Y-m-d）
  * @return string
  */
-function dts_format_date(?string $date, string $format = 'Y年m月d日'): string {
+function dts_format_date(?string $date, string $format = 'Y-m-d'): string {
     if (empty($date) || $date === '0000-00-00') {
         return '-';
     }
@@ -335,7 +353,7 @@ function dts_get_urgency_class(?string $date): string {
         return 'info'; // 90天内
     }
 
-    return '';
+    return 'success';
 }
 
 /**
@@ -358,14 +376,14 @@ function dts_get_urgency_text(?string $date): string {
     } elseif ($days === 1) {
         return "明天到期";
     } elseif ($days <= 7) {
-        return "还有 {$days} 天";
+        return "剩 {$days} 天";
     } elseif ($days <= 30) {
-        return "还有 {$days} 天";
+        return "剩 {$days} 天";
     } elseif ($days <= 90) {
-        return "还有 {$days} 天";
+        return "剩 {$days} 天";
     }
 
-    return "还有 {$days} 天";
+    return "剩 {$days} 天";
 }
 
 /**

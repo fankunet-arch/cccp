@@ -1,6 +1,11 @@
 <?php
 /**
  * DTS 极速录入 (Smart Quick Entry) - Refactored to System Standard
+ *
+ * Now serves as:
+ * 1. Quick Entry (No params)
+ * 2. New Event for Object (object_id=...)
+ * 3. Edit Event (id=...)
  */
 
 declare(strict_types=1);
@@ -8,7 +13,87 @@ require_once APP_PATH_CP . '/dts/dts_lib.php';
 
 global $pdo;
 
-// 1. 预加载数据
+// --- 1. 模式判断与数据加载 ---
+$event_id = dts_get('id');
+$object_id_from_url = dts_get('object_id');
+$is_edit_mode = !empty($event_id);
+
+// 初始化默认值
+$form_data = [
+    'subject_name' => '',
+    'subject_id' => '',
+    'object_name' => '',
+    'cat_main' => '',
+    'cat_sub' => '',
+    'event_date' => date('Y-m-d'),
+    'event_type' => '',
+    'note' => '',
+    'mileage_now' => '',
+    'expiry_date_new' => '',
+    'rule_id' => ''
+];
+
+$page_title = '极速录入';
+$rules = []; // Store available rules for the object
+
+if ($is_edit_mode) {
+    $page_title = '编辑事件';
+    // Fetch event data + subject + object
+    $stmt = $pdo->prepare("
+        SELECT
+            e.*,
+            o.object_name, o.object_type_main, o.object_type_sub,
+            s.id AS subject_id, s.subject_name
+        FROM cp_dts_event e
+        JOIN cp_dts_object o ON e.object_id = o.id
+        JOIN cp_dts_subject s ON e.subject_id = s.id
+        WHERE e.id = ?
+    ");
+    $stmt->execute([$event_id]);
+    $event = $stmt->fetch();
+
+    if ($event) {
+        $form_data['subject_name'] = $event['subject_name'];
+        $form_data['subject_id'] = $event['subject_id'];
+        $form_data['object_name'] = $event['object_name'];
+        $form_data['cat_main'] = $event['object_type_main'];
+        $form_data['cat_sub'] = $event['object_type_sub'];
+        $form_data['event_date'] = $event['event_date'];
+        $form_data['event_type'] = $event['event_type'];
+        $form_data['note'] = $event['note'];
+        $form_data['mileage_now'] = $event['mileage_now'];
+        $form_data['expiry_date_new'] = $event['expiry_date_new'];
+        $form_data['rule_id'] = $event['rule_id'];
+
+        // Load rules for this object type
+        $rules = dts_get_rules_for_view($pdo, $event['object_type_main'], $event['object_type_sub']);
+    }
+} elseif ($object_id_from_url) {
+    $page_title = '新增事件';
+    // Fetch object + subject
+    $stmt = $pdo->prepare("
+        SELECT o.*, s.subject_name
+        FROM cp_dts_object o
+        JOIN cp_dts_subject s ON o.subject_id = s.id
+        WHERE o.id = ?
+    ");
+    $stmt->execute([$object_id_from_url]);
+    $object = $stmt->fetch();
+
+    if ($object) {
+        $form_data['subject_name'] = $object['subject_name'];
+        $form_data['subject_id'] = $object['subject_id'];
+        $form_data['object_name'] = $object['object_name'];
+        $form_data['cat_main'] = $object['object_type_main'];
+        $form_data['cat_sub'] = $object['object_type_sub'];
+
+        // Load rules for this object type
+        $rules = dts_get_rules_for_view($pdo, $object['object_type_main'], $object['object_type_sub']);
+    }
+}
+
+
+// --- 2. 预加载基础数据 ---
 $subjects_stmt = $pdo->query("SELECT id, subject_name, subject_type FROM cp_dts_subject WHERE subject_status = 1 ORDER BY subject_name");
 $subjects = $subjects_stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -20,11 +105,33 @@ $event_types = [
     'other' => '其他'
 ];
 
-// 检查反馈 (保持原逻辑，渲染到隐藏的 div 中，由 JS 提取显示)
+// Helper to get rules (since we couldn't find the original function, we implement a local one)
+function dts_get_rules_for_view($pdo, $main_cat, $sub_cat) {
+    try {
+        $sql = "SELECT id, rule_name FROM cp_dts_rule WHERE (cat_main = ? OR cat_main = 'ALL')";
+        $params = [$main_cat];
+
+        if ($sub_cat) {
+            $sql .= " AND (cat_sub IS NULL OR cat_sub = '' OR cat_sub = ?)";
+            $params[] = $sub_cat;
+        } else {
+             $sql .= " AND (cat_sub IS NULL OR cat_sub = '')";
+        }
+        $sql .= " ORDER BY rule_name";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        return [];
+    }
+}
+
+
+// 检查反馈
 $feedback = dts_get_feedback();
 $feedback_html = '';
 if ($feedback) {
-    // 注意：这里使用 data-type 属性方便 JS 读取
     $type = $feedback['type'] === 'success' ? 'success' : 'error';
     $feedback_html = "<div id='server-feedback' data-type='{$type}' style='display:none;'>{$feedback['message']}</div>";
 }
@@ -32,12 +139,16 @@ if ($feedback) {
 
 <section class="content-header-replacement">
     <div class="page-header-title">
-        <h1><i class="fas fa-bolt" style="color:#f39c12;"></i> DTS 极速录入 <small>一页搞定</small></h1>
+        <h1><i class="fas fa-bolt" style="color:#f39c12;"></i> DTS <?php echo htmlspecialchars($page_title); ?> </h1>
     </div>
     <ol class="breadcrumb">
         <li><a href="<?php echo CP_BASE_URL; ?>dashboard"><i class="fas fa-home"></i> 首页</a></li>
         <li><a href="<?php echo CP_BASE_URL; ?>dts_main">DTS 时间线</a></li>
-        <li class="active">极速录入</li>
+        <?php if ($is_edit_mode || $object_id_from_url): ?>
+             <!-- If coming from edit/new mode, show link back to object list or detail -->
+             <li><a href="<?php echo CP_BASE_URL; ?>dts_object">对象管理</a></li>
+        <?php endif; ?>
+        <li class="active"><?php echo htmlspecialchars($page_title); ?></li>
     </ol>
 </section>
 
@@ -45,10 +156,32 @@ if ($feedback) {
     <?php echo $feedback_html; ?>
 
     <form action="<?php echo CP_BASE_URL; ?>dts_quick_save" method="post" class="form-horizontal" autocomplete="off">
-        
+        <!-- Hidden fields for Edit Mode / Redirect -->
+        <input type="hidden" name="event_id" value="<?php echo htmlspecialchars((string)$event_id); ?>">
+        <input type="hidden" name="redirect_url" value="<?php echo htmlspecialchars((string)dts_get('redirect_url', '')); ?>">
+        <?php
+            // If we have object_id from URL but not in edit mode, we might want to return to object detail
+            if (!$event_id && $object_id_from_url) {
+                // Cast object_id to int for safety when building URL
+                echo '<input type="hidden" name="redirect_url" value="'. CP_BASE_URL . 'dts_object_detail&id=' . (int)$object_id_from_url . '">';
+            } elseif ($event_id) {
+                 // If editing, try to return to referrer or object detail
+                 // This logic is handled by dts_action_quick_save if redirect_url is set.
+                 // We can set a default return to object detail if we know the object id.
+                 if (!empty($form_data['subject_id'])) { // abusing subject_id to check if data loaded
+                      // We need object id. We can get it from existing data if we query it.
+                      // Since we don't have object ID in $form_data explicitly as ID, but we can rely on HTTP_REFERER or just let user decide.
+                      // Let's check HTTP_REFERER
+                      if (isset($_SERVER['HTTP_REFERER']) && strpos($_SERVER['HTTP_REFERER'], 'dts_object_detail') !== false) {
+                           echo '<input type="hidden" name="redirect_url" value="'. htmlspecialchars($_SERVER['HTTP_REFERER']) . '">';
+                      }
+                 }
+            }
+        ?>
+
         <div class="row">
             <div class="col-md-12">
-                
+
                 <div class="card box-primary">
                     <div class="card-header with-border">
                         <h3 class="box-title"><i class="fas fa-user"></i> 1. 归属主体 (Who)</h3>
@@ -57,21 +190,22 @@ if ($feedback) {
                         <div class="row compact-grid-row">
                             <div class="compact-field-unit" style="grid-column: 1 / -1;">
                                 <label for="subject_name_input">主体名称 *</label>
-                                <input type="text" class="form-control" name="subject_name_input" id="subject_name_input" 
-                                       list="subject_list" placeholder="输入名字（如'张'），列表自动跳出..." required>
+                                <input type="text" class="form-control" name="subject_name_input" id="subject_name_input"
+                                       list="subject_list" placeholder="输入名字（如'张'），列表自动跳出..."
+                                       value="<?php echo htmlspecialchars($form_data['subject_name']); ?>" required>
                                 <datalist id="subject_list">
                                     <?php foreach ($subjects as $subj): ?>
-                                        <option value="<?php echo htmlspecialchars($subj['subject_name']); ?>" 
-                                                data-id="<?php echo $subj['id']; ?>" 
+                                        <option value="<?php echo htmlspecialchars($subj['subject_name']); ?>"
+                                                data-id="<?php echo $subj['id']; ?>"
                                                 data-type="<?php echo $subj['subject_type']; ?>">
                                             <?php echo $subj['subject_type'] === 'company' ? '【公司】' : '【个人】'; ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </datalist>
-                                <input type="hidden" name="subject_id" id="subject_id_hidden">
+                                <input type="hidden" name="subject_id" id="subject_id_hidden" value="<?php echo htmlspecialchars((string)$form_data['subject_id']); ?>">
                             </div>
                             <div class="field-hint" id="subject_help_text" style="grid-column: 1 / -1; margin-top:-10px; margin-bottom:10px; padding-left: 135px;">
-                                如果是新主体，系统将自动创建。
+                                <?php echo (!empty($form_data['subject_id'])) ? '<span class="text-success"><i class="fas fa-check"></i> 已关联现有主体</span>' : '如果是新主体，系统将自动创建。'; ?>
                             </div>
 
                             <div class="compact-field-unit" id="new_subject_type_group" style="display:none; grid-column: 1 / -1;">
@@ -97,8 +231,9 @@ if ($feedback) {
                         <div class="row compact-grid-row">
                             <div class="compact-field-unit" style="grid-column: 1 / -1;">
                                 <label for="object_name">对象名称 *</label>
-                                <input type="text" class="form-control" name="object_name" id="object_name" 
-                                       placeholder="例如：护照、车辆Q3、临时罚单" required>
+                                <input type="text" class="form-control" name="object_name" id="object_name"
+                                       placeholder="例如：护照、车辆Q3、临时罚单"
+                                       value="<?php echo htmlspecialchars($form_data['object_name']); ?>" required>
                             </div>
                             <div class="field-hint" style="grid-column: 1 / -1; margin-top:-10px; margin-bottom:15px; padding-left: 135px;">
                                 若主体下已有同名对象则自动合并；否则创建新对象。
@@ -109,14 +244,17 @@ if ($feedback) {
                                 <select class="form-control" name="cat_main" id="cat_main" required>
                                     <option value="">-- 请选择 --</option>
                                     <?php foreach (array_keys($categories) as $main): ?>
-                                        <option value="<?php echo htmlspecialchars($main); ?>"><?php echo htmlspecialchars($main); ?></option>
+                                        <option value="<?php echo htmlspecialchars($main); ?>"
+                                            <?php echo ($main === $form_data['cat_main']) ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($main); ?>
+                                        </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
 
                             <div class="compact-field-unit">
                                 <label for="cat_sub">小类</label>
-                                <select class="form-control" name="cat_sub" id="cat_sub">
+                                <select class="form-control" name="cat_sub" id="cat_sub" data-selected="<?php echo htmlspecialchars((string)$form_data['cat_sub']); ?>">
                                     <option value="">(先选大类)</option>
                                 </select>
                             </div>
@@ -132,35 +270,59 @@ if ($feedback) {
                         <div class="row compact-grid-row">
                             <div class="compact-field-unit date-field-full-row">
                                 <label for="event_date">日期 *</label>
-                                <input type="date" class="form-control" name="event_date" id="event_date" value="<?php echo date('Y-m-d'); ?>" required>
+                                <input type="date" class="form-control" name="event_date" id="event_date"
+                                       value="<?php echo htmlspecialchars($form_data['event_date']); ?>" required>
                             </div>
 
                             <div class="compact-field-unit">
                                 <label for="event_type">类型 *</label>
                                 <select class="form-control" name="event_type" id="event_type" required>
                                     <?php foreach ($event_types as $k => $v): ?>
-                                        <option value="<?php echo $k; ?>"><?php echo $v; ?></option>
+                                        <option value="<?php echo $k; ?>"
+                                            <?php echo ($k === $form_data['event_type']) ? 'selected' : ''; ?>>
+                                            <?php echo $v; ?>
+                                        </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
 
                             <div class="compact-field-unit">
                                 <label for="note">备注</label>
-                                <input type="text" class="form-control" name="note" id="note" placeholder="补充说明...">
+                                <input type="text" class="form-control" name="note" id="note"
+                                       value="<?php echo htmlspecialchars((string)$form_data['note']); ?>" placeholder="补充说明...">
                             </div>
 
                             <div class="compact-field-unit" id="mileage_area" style="display: none;">
                                 <label for="mileage_now" style="color:#d35400;">当前公里数</label>
                                 <div style="flex:1; display:flex;">
-                                    <input type="number" class="form-control" name="mileage_now" id="mileage_now" placeholder="仪表盘读数">
+                                    <input type="number" class="form-control" name="mileage_now" id="mileage_now"
+                                           value="<?php echo htmlspecialchars((string)$form_data['mileage_now']); ?>" placeholder="仪表盘读数">
                                     <span style="padding: 10px; background: #eee; border:1px solid #ccc; border-left:0; border-radius:0 8px 8px 0;">KM</span>
                                 </div>
                             </div>
 
                             <div class="compact-field-unit" id="expiry_area" style="display: none;">
                                 <label for="expiry_date_new" style="color:#2980b9;">新过期日</label>
-                                <input type="date" class="form-control" name="expiry_date_new" id="expiry_date_new">
+                                <input type="date" class="form-control" name="expiry_date_new" id="expiry_date_new"
+                                       value="<?php echo htmlspecialchars((string)$form_data['expiry_date_new']); ?>">
                             </div>
+
+                            <!-- Rule Selector (Hidden by default unless rules exist or user wants to see it) -->
+                            <?php if (!empty($rules) || $is_edit_mode): ?>
+                            <div class="compact-field-unit" style="grid-column: 1 / -1; margin-top: 10px; padding-top:10px; border-top:1px dashed #eee;">
+                                <label for="rule_id" style="color:#555;">关联规则</label>
+                                <select class="form-control" name="rule_id" id="rule_id">
+                                    <option value="">-- 不使用规则 --</option>
+                                    <?php foreach ($rules as $rule): ?>
+                                        <option value="<?php echo $rule['id']; ?>"
+                                            <?php echo ($rule['id'] == $form_data['rule_id']) ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($rule['rule_name']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <?php endif; ?>
+
                         </div>
                     </div>
 
@@ -169,12 +331,21 @@ if ($feedback) {
                                 padding:16px 24px;border-top:1px solid #e9eef5;
                                 background:linear-gradient(180deg,#fff,#f8fafc);
                                 border-radius:0 0 12px 12px;">
+
+                        <?php if ($is_edit_mode): ?>
+                            <a href="<?php echo CP_BASE_URL; ?>dts_ev_del&id=<?php echo $event_id; ?>&confirm=1"
+                               onclick="return confirm('确定要删除此事件吗？');"
+                               class="btn btn-danger btn-sm" style="margin-right:auto;">
+                                <i class="fas fa-trash"></i> 删除
+                            </a>
+                        <?php endif; ?>
+
                         <button type="submit"
                                 style="display:inline-flex;align-items:center;justify-content:center;
                                        height:44px;padding:0 26px;border:0;border-radius:12px;
                                        background:#3b82f6;color:#fff;font-weight:700;
                                        box-shadow:0 8px 18px rgba(59,130,246,.28);">
-                            <i class="fas fa-check-circle" style="margin-right:8px;"></i> 保存记录
+                            <i class="fas fa-check-circle" style="margin-right:8px;"></i> <?php echo $is_edit_mode ? '保存修改' : '保存记录'; ?>
                         </button>
                     </div>
                 </div>
@@ -217,12 +388,12 @@ if ($feedback) {
     // --- 以下为原有业务逻辑 (联想与联动) ---
     const subjects = <?php echo json_encode($subjects); ?>;
     const categories = <?php echo json_encode($categories); ?>;
-    
+
     const inputSubj = document.getElementById('subject_name_input');
     const hiddenSubjId = document.getElementById('subject_id_hidden');
     const newSubjGroup = document.getElementById('new_subject_type_group');
     const helpText = document.getElementById('subject_help_text');
-    
+
     const catMain = document.getElementById('cat_main');
     const catSub = document.getElementById('cat_sub');
     const mileageArea = document.getElementById('mileage_area');
@@ -231,7 +402,7 @@ if ($feedback) {
     inputSubj.addEventListener('input', function() {
         const val = this.value.trim();
         const match = subjects.find(s => s.subject_name === val);
-        
+
         if (match) {
             hiddenSubjId.value = match.id;
             $(newSubjGroup).slideUp(150);
@@ -248,23 +419,39 @@ if ($feedback) {
         }
     });
 
+    // Helper to trigger event
+    function triggerEvent(el, type) {
+        if ('createEvent' in document) {
+            var e = document.createEvent('HTMLEvents');
+            e.initEvent(type, false, true);
+            el.dispatchEvent(e);
+        } else {
+            el.fireEvent('on' + type);
+        }
+    }
+
     catMain.addEventListener('change', function(){
         const main = this.value;
+        const selectedSub = catSub.dataset.selected || '';
+
         catSub.innerHTML = '<option value="">(可选)</option>';
         if (categories[main]) {
             categories[main].forEach(sub => {
                 const opt = document.createElement('option');
                 opt.value = sub;
                 opt.innerText = sub;
+                if (sub === selectedSub) opt.selected = true;
                 catSub.appendChild(opt);
             });
         }
-        
+
         if (main === '车辆') {
             $(mileageArea).css('display', 'flex').hide().slideDown(200);
         } else {
             $(mileageArea).slideUp(200);
-            mileageArea.querySelector('input').value = '';
+            // Don't clear value if in edit mode and value exists? No, business logic says mileage only for cars.
+            // But if I mistakenly changed catMain and change back, value is lost.
+            // mileageArea.querySelector('input').value = '';
         }
 
         if (main === '证件') {
@@ -273,6 +460,11 @@ if ($feedback) {
             $(expiryArea).slideUp(200);
         }
     });
+
+    // Initial Trigger
+    if (catMain.value) {
+        triggerEvent(catMain, 'change');
+    }
 
 })();
 </script>

@@ -16,18 +16,6 @@
 
 ## 快速开始
 
-### 部署路径与访问入口
-
-- **线上入口 URL**：https://dc.abcabc.net/cp/index.php （CP 模块统一入口）
-- **Web 根目录文件**：`/dc_html/cp/index.php`（负责把请求转发到核心应用）
-- **核心应用目录**：`/app/cp`（包含 DTS 的所有 PHP 代码）
-- **静态资源目录**：`/dc_html/cp/dts`（CSS、JS、图标等）
-- **极速录入入口**：`/cp/index.php?action=dts_quick`（侧边栏「日期管理 → 极速录入」）
-
-> 进行 DTS 相关任务时，请在需求/发布说明里同步标注“线上访问地址”与“服务器文件路径”，确保 https://dc.abcabc.net/cp/index.php 与 `/dc_html/cp/index.php` 始终对齐，避免因路径错位导致 403。
-
-> 历史链接兼容：旧版仍可能访问 `action=dts_event_form`/`dts_event_save`，系统已兼容到新的事件编辑/保存逻辑，确保线上旧书签不会出现 403。
-
 ### 1. 数据库安装
 
 运行 SQL 文件创建数据库表：
@@ -199,20 +187,6 @@ SOURCE /path/to/app/cp/dts/dts_schema.sql;
 4. 刷新浏览器即可生效
 
 ---
-
-## 本地运行与测试
-
-### 覆盖数据库连接
-
-`/app/cp/bootstrap.php` 支持通过环境变量覆盖数据库连接信息，便于在开发机或自动化脚本中使用 SQLite 等轻量数据库：
-
-| 环境变量 | 作用 |
-| --- | --- |
-| `CP_CUSTOM_DSN` | 完整 PDO DSN（例如 `sqlite:/tmp/dts.sqlite`） |
-| `CP_CUSTOM_DB_USER` | 可选，非 SQLite 时指定用户名 |
-| `CP_CUSTOM_DB_PASS` | 可选，非 SQLite 时指定密码 |
-
-当 DSN 指向 SQLite 时，系统会自动开启外键约束，并注入 `NOW()` 函数以兼容现有 SQL。
 
 ## 规则管理
 

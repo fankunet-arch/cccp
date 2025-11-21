@@ -201,11 +201,16 @@ $events = $stmt->fetchAll();
                                             <?php endif; ?>
                                         </div>
                                         <div class="timeline-footer">
-                                            <a href="<?php echo CP_BASE_URL; ?>dts_ev_edit&id=<?php echo $event['id']; ?>&object_id=<?php echo $object['id']; ?>"
-                                               class="btn btn-xs btn-primary">
+                                            <a href="<?php echo CP_BASE_URL; ?>dts_ev_edit&id=<?php echo $event['id']; ?>" class="btn btn-xs btn-primary">
                                                 <i class="fas fa-edit"></i> 编辑
                                             </a>
-                                        </div>
+                                            <form action="<?php echo CP_BASE_URL; ?>dts_ev_del" method="post" style="display:inline;" onsubmit="return confirm('您确定要删除此事件吗？此操作无法撤销。');">
+                                                <input type="hidden" name="event_id" value="<?php echo $event['id']; ?>">
+                                                <input type="hidden" name="object_id" value="<?php echo $object['id']; ?>">
+                                                <button type="submit" class="btn btn-xs btn-danger">
+                                                    <i class="fas fa-trash"></i> 删除
+                                                </button>
+                                            </form>
                                         </div>
                                     </div>
                                 </div>
