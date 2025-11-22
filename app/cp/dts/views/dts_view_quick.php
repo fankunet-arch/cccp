@@ -2,11 +2,12 @@
 /**
  * DTS 极速录入 (Smart Quick Entry) - v2.1.3 Refactored
  *
- * [v2.1.2] 移除 mode=append 逻辑，专注于两个职责：
+ * 职责：
  * 1. 新建主体 + 对象 + 首次事件（无参数）
  * 2. 编辑已有事件（id=...）
+ * 3. [v2.1.3] 为已有对象新增事件（mode=ev_add&object_id=X）
  *
- * [v2.1.3] 注意：对象追加事件现在使用安全网关 dts_ops&op=ev_add&oid=X
+ * [v2.1.3] 注意：对象追加事件通过安全网关 dts_ops&op=ev_add&oid=X 访问
  */
 
 declare(strict_types=1);
@@ -15,8 +16,12 @@ require_once APP_PATH_CP . '/dts/dts_lib.php';
 global $pdo;
 
 // --- 1. 模式判断与数据加载 ---
+$mode = $_GET['mode'] ?? null;
 $event_id = dts_get('id');
+$object_id_from_url = isset($_GET['object_id']) ? (int)$_GET['object_id'] : null;
+
 $is_edit_mode = !empty($event_id);
+$is_ev_add_mode = ($mode === 'ev_add' && $object_id_from_url > 0);
 
 // 初始化默认值
 $form_data = [
@@ -67,6 +72,47 @@ if ($is_edit_mode) {
 
         // Load rules for this object type
         $rules = dts_get_rules_for_view($pdo, $event['object_type_main'], $event['object_type_sub']);
+    }
+} elseif ($is_ev_add_mode) {
+    // [v2.1.3] ev_add 模式：为已有对象新增事件
+    $page_title = '新增事件';
+
+    // 查询对象信息（包含主体信息）
+    $stmt = $pdo->prepare("
+        SELECT
+            o.id AS object_id,
+            o.object_name,
+            o.object_type_main,
+            o.object_type_sub,
+            s.id AS subject_id,
+            s.subject_name,
+            s.subject_type
+        FROM cp_dts_object o
+        LEFT JOIN cp_dts_subject s ON o.subject_id = s.id
+        WHERE o.id = ? AND o.is_deleted = 0
+    ");
+    $stmt->execute([$object_id_from_url]);
+    $object = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($object) {
+        // 预填充表单数据
+        $form_data['subject_name'] = $object['subject_name'];
+        $form_data['subject_id'] = $object['subject_id'];
+        $form_data['object_name'] = $object['object_name'];
+        $form_data['cat_main'] = $object['object_type_main'];
+        $form_data['cat_sub'] = $object['object_type_sub'];
+        $form_data['object_id'] = $object['object_id']; // 用于隐藏字段
+
+        // 加载该对象类型的规则列表
+        $rules = dts_get_rules_for_view($pdo, $object['object_type_main'], $object['object_type_sub']);
+    } else {
+        // 对象不存在或已删除，显示错误并退出
+        echo '<div class="content-wrapper"><section class="content">';
+        echo '<div class="alert alert-danger">';
+        echo '<i class="fas fa-exclamation-triangle"></i> 对象不存在或已删除，无法新增事件。';
+        echo '<br><br><a href="' . CP_BASE_URL . 'dts_object" class="btn btn-primary">返回对象列表</a>';
+        echo '</div></section></div>';
+        return; // 退出脚本
     }
 }
 
@@ -122,8 +168,8 @@ if ($feedback) {
     <ol class="breadcrumb">
         <li><a href="<?php echo CP_BASE_URL; ?>dashboard"><i class="fas fa-home"></i> 首页</a></li>
         <li><a href="<?php echo CP_BASE_URL; ?>dts_main">DTS 时间线</a></li>
-        <?php if ($is_edit_mode): ?>
-             <!-- If coming from edit mode, show link back to object list -->
+        <?php if ($is_edit_mode || $is_ev_add_mode): ?>
+             <!-- If coming from edit/ev_add mode, show link back to object list -->
              <li><a href="<?php echo CP_BASE_URL; ?>dts_object">对象管理</a></li>
         <?php endif; ?>
         <li class="active"><?php echo htmlspecialchars($page_title); ?></li>
@@ -136,14 +182,24 @@ if ($feedback) {
     <form action="<?php echo CP_BASE_URL; ?>dts_quick_save" method="post" class="form-horizontal" autocomplete="off">
         <!-- Hidden fields for Edit Mode / Redirect -->
         <input type="hidden" name="event_id" value="<?php echo htmlspecialchars((string)$event_id); ?>">
+
+        <?php if ($is_ev_add_mode): ?>
+            <!-- ev_add 模式的隐藏字段 -->
+            <input type="hidden" name="mode" value="ev_add">
+            <input type="hidden" name="object_id" value="<?php echo htmlspecialchars((string)($form_data['object_id'] ?? '')); ?>">
+        <?php endif; ?>
+
         <?php
             // 设置redirect_url：优先级：URL参数 > HTTP_REFERER > 默认空
             $redirect_url = dts_get('redirect_url', '');
 
-            // 编辑模式：尝试返回到来源页面
-            if ($event_id && empty($redirect_url)) {
+            // 编辑模式或 ev_add 模式：尝试返回到来源页面
+            if (($event_id || $is_ev_add_mode) && empty($redirect_url)) {
                 if (isset($_SERVER['HTTP_REFERER']) && strpos($_SERVER['HTTP_REFERER'], 'dts_object_detail') !== false) {
                     $redirect_url = $_SERVER['HTTP_REFERER'];
+                } elseif ($is_ev_add_mode && isset($form_data['object_id'])) {
+                    // ev_add 模式：默认返回到对象详情页
+                    $redirect_url = CP_BASE_URL . 'dts_object_detail&id=' . $form_data['object_id'];
                 }
             }
 
