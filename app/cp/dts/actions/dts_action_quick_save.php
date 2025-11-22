@@ -1,9 +1,10 @@
 <?php
 /**
- * DTS 极速录入保存 (Smart Save) - v2.1.2 Refactored
- * [v2.1.2] 移除 mode=append 逻辑，专注于两个职责：
+ * DTS 极速录入保存 (Smart Save) - v2.1.3 Refactored
+ * 职责：
  * 1. 新建主体 + 对象 + 首次事件
  * 2. 编辑已有事件（通过 event_id）
+ * 3. [v2.1.3] 为已有对象新增事件（mode=ev_add）
  *
  * 核心逻辑：
  * 1. 检查主体：有ID用ID；无ID则按名字创建新主体
@@ -20,8 +21,69 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit('Method Not Allowed');
 }
 
+// 检查是否是 ev_add 模式
+$mode = dts_post('mode');
+$is_ev_add_mode = ($mode === 'ev_add');
+
 try {
     $pdo->beginTransaction();
+
+    // --- [v2.1.3] ev_add 模式：直接处理事件，跳过主体和对象创建 ---
+    if ($is_ev_add_mode) {
+        $object_id = (int)dts_post('object_id');
+
+        if (!$object_id) {
+            throw new Exception('对象 ID 缺失');
+        }
+
+        // 验证对象是否存在
+        $stmt = $pdo->prepare("
+            SELECT id, subject_id, object_name, object_type_main, object_type_sub
+            FROM cp_dts_object
+            WHERE id = ? AND is_deleted = 0
+        ");
+        $stmt->execute([$object_id]);
+        $object = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$object) {
+            throw new Exception('对象不存在或已删除');
+        }
+
+        $subject_id = $object['subject_id'];
+
+        // 整理事件参数
+        $event_params = [
+            'subject_id' => (int)$subject_id,
+            'event_type' => dts_post('event_type'),
+            'event_date' => dts_post('event_date'),
+            'rule_id' => dts_post('rule_id') ?: null,
+            'expiry_date_new' => dts_post('expiry_date_new') ?: null,
+            'mileage_now' => dts_post('mileage_now') ?: null,
+            'note' => trim(dts_post('note', '')),
+            'cat_main' => $object['object_type_main'],
+            'cat_sub' => $object['object_type_sub'] ?: null
+        ];
+
+        // 调用统一事件保存入口
+        $saved_event_id = dts_save_event($pdo, (int)$object_id, $event_params);
+
+        if (!$saved_event_id) {
+            throw new Exception('事件保存失败');
+        }
+
+        dts_set_feedback('success', "事件已成功添加到对象【{$object['object_name']}】！");
+
+        $pdo->commit();
+
+        // 跳转回对象详情页
+        $redirect_url = dts_post('redirect_url');
+        if ($redirect_url) {
+            header('Location: ' . $redirect_url);
+        } else {
+            header('Location: ' . CP_BASE_URL . 'dts_object_detail&id=' . $object_id);
+        }
+        exit();
+    }
 
     // --- 1. 处理主体 (Subject) ---
     $subject_id = dts_post('subject_id');

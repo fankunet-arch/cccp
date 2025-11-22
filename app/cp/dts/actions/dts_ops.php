@@ -49,14 +49,20 @@ if ($op === null) {
 // ========================================
 switch ($op) {
     case 'ev_add':
-        // 新增事件
-        // 将 gateway 参数映射回原有参数名，确保 dts_ev_add.php 兼容
-        if ($oid !== null) {
-            $_GET['object_id'] = $oid;
-        }
+        // [v2.1.3] 新增事件：使用 dts_quick 的智能表单引擎
+        // 设置给 dts_view_quick.php 使用的参数
+        $_GET['mode'] = 'ev_add';      // 模式：为已有对象新增事件
+        $_GET['object_id'] = $oid;     // 对象 ID
 
-        // 内部复用原有业务逻辑
-        require APP_PATH_CP . '/dts/actions/dts_ev_add.php';
+        // 手动加载 header（因为 dts_view_quick 是纯内容）
+        require APP_PATH_CP . '/views/layouts/header.php';
+
+        // 使用 dts_quick 的智能表单
+        require APP_PATH_CP . '/dts/views/dts_view_quick.php';
+
+        // 手动加载 footer
+        require APP_PATH_CP . '/views/layouts/footer.php';
+        exit();
         break;
 
     case 'ev_edit':
