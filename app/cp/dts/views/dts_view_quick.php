@@ -16,7 +16,10 @@ global $pdo;
 // --- 1. 模式判断与数据加载 ---
 $event_id = dts_get('id');
 $object_id_from_url = dts_get('object_id');
+$subject_id_from_url = dts_get('subject_id');
+$mode = dts_get('mode'); // 'append' for adding event to existing object
 $is_edit_mode = !empty($event_id);
+$is_append_mode = ($mode === 'append' && !empty($object_id_from_url));
 
 // 初始化默认值
 $form_data = [
@@ -69,7 +72,7 @@ if ($is_edit_mode) {
         $rules = dts_get_rules_for_view($pdo, $event['object_type_main'], $event['object_type_sub']);
     }
 } elseif ($object_id_from_url) {
-    $page_title = '新增事件';
+    $page_title = $is_append_mode ? '追加新事件' : '新增事件';
     // Fetch object + subject
     $stmt = $pdo->prepare("
         SELECT o.*, s.subject_name
@@ -155,9 +158,20 @@ if ($feedback) {
 <section class="content">
     <?php echo $feedback_html; ?>
 
+    <?php if ($is_append_mode): ?>
+    <div class="alert alert-info" style="margin-bottom: 20px;">
+        <i class="fas fa-info-circle"></i>
+        <strong>追加事件模式：</strong>
+        正在为对象【<?php echo htmlspecialchars($form_data['object_name']); ?>】追加新事件。
+        如修改上方主体/对象信息，将创建新的对象记录。
+    </div>
+    <?php endif; ?>
+
     <form action="<?php echo CP_BASE_URL; ?>dts_quick_save" method="post" class="form-horizontal" autocomplete="off">
-        <!-- Hidden fields for Edit Mode / Redirect -->
+        <!-- Hidden fields for Edit Mode / Redirect / Append Mode -->
         <input type="hidden" name="event_id" value="<?php echo htmlspecialchars((string)$event_id); ?>">
+        <input type="hidden" name="mode" value="<?php echo htmlspecialchars((string)$mode); ?>">
+        <input type="hidden" name="original_object_id" value="<?php echo htmlspecialchars((string)$object_id_from_url); ?>">
         <input type="hidden" name="redirect_url" value="<?php echo htmlspecialchars((string)dts_get('redirect_url', '')); ?>">
         <?php
             // If we have object_id from URL but not in edit mode, we might want to return to object detail

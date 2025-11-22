@@ -20,6 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 try {
     $pdo->beginTransaction();
 
+    // --- 0. 检测append模式 ---
+    $mode = dts_post('mode');
+    $original_object_id = dts_post('original_object_id');
+    $is_append_mode = ($mode === 'append' && !empty($original_object_id));
+
     // --- 1. 处理主体 (Subject) ---
     $subject_id = dts_post('subject_id');
     $subject_name_input = trim(dts_post('subject_name_input', ''));
@@ -41,17 +46,48 @@ try {
         }
     }
 
-    // --- 2. [v2.1] 使用统一对象保存入口 ---
+    // --- 2. 处理对象 (Object) ---
     $object_name = trim(dts_post('object_name', ''));
     $cat_main = trim(dts_post('cat_main', ''));
     $cat_sub = trim(dts_post('cat_sub', ''));
 
-    $object_id = dts_save_object($pdo, (int)$subject_id, $object_name, [
-        'cat_main' => $cat_main,
-        'cat_sub' => $cat_sub ?: null,
-        'identifier' => null,
-        'remark' => null
-    ]);
+    // [v2.1.1-UI-Fix] Append模式：检查是否修改了对象信息
+    if ($is_append_mode) {
+        // 查询原对象信息
+        $stmt_orig = $pdo->prepare("SELECT subject_id, object_name, object_type_main, object_type_sub FROM cp_dts_object WHERE id = ?");
+        $stmt_orig->execute([$original_object_id]);
+        $orig_obj = $stmt_orig->fetch();
+
+        // 判断是否修改了主体/对象信息
+        $is_modified = (
+            !$orig_obj ||
+            $orig_obj['subject_id'] != $subject_id ||
+            $orig_obj['object_name'] !== $object_name ||
+            $orig_obj['object_type_main'] !== $cat_main ||
+            ($orig_obj['object_type_sub'] ?? '') !== ($cat_sub ?: '')
+        );
+
+        if ($is_modified) {
+            // 用户修改了信息，创建新对象
+            $object_id = dts_save_object($pdo, (int)$subject_id, $object_name, [
+                'cat_main' => $cat_main,
+                'cat_sub' => $cat_sub ?: null,
+                'identifier' => null,
+                'remark' => null
+            ]);
+        } else {
+            // 未修改，直接使用原对象ID
+            $object_id = (int)$original_object_id;
+        }
+    } else {
+        // 非append模式，使用统一对象保存入口
+        $object_id = dts_save_object($pdo, (int)$subject_id, $object_name, [
+            'cat_main' => $cat_main,
+            'cat_sub' => $cat_sub ?: null,
+            'identifier' => null,
+            'remark' => null
+        ]);
+    }
 
     if (!$object_id) {
         throw new Exception('对象保存失败');
@@ -81,6 +117,8 @@ try {
     // 设置反馈消息
     if (!empty($event_params['event_id'])) {
         dts_set_feedback('success', "记录已更新！(主体: {$subject_name_input} - 对象: {$object_name})");
+    } elseif ($is_append_mode && !$is_modified) {
+        dts_set_feedback('success', "事件已追加到对象【{$object_name}】！");
     } else {
         dts_set_feedback('success', "记录已保存！(主体: {$subject_name_input} - 对象: {$object_name})");
     }
