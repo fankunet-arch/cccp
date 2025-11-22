@@ -129,17 +129,49 @@ error_log('DTS_EV_ADD reached');
 
 ### 4.2 📊 查看错误日志
 
+#### 开发环境日志
+
+**项目调试日志**: `/logs/debug.log`
+```bash
+# 实时监控（推荐）
+tail -f /home/user/cccp/logs/debug.log
+
+# 查看最后 50 行
+tail -n 50 /home/user/cccp/logs/debug.log
+
+# 搜索特定内容
+grep -E "CP index|DTS_EV_ADD" /home/user/cccp/logs/debug.log
+```
+
+**日志格式**:
+```
+[2025-11-22 16:12:30] CP index hit, action=dts_quick
+[2025-11-22 16:12:35] DTS_EV_ADD reached
+```
+
+#### 生产环境日志
+
 请检查以下日志文件（根据服务器配置，路径可能不同）：
 
 ```bash
-# PHP 错误日志
-tail -f /var/log/php_errors.log
+# 1. 项目调试日志（首选）
+# 代码已配置写入项目目录
+tail -f /path/to/cccp/logs/debug.log
 
-# Apache 错误日志
-tail -f /var/log/apache2/error.log
+# 2. Apache 错误日志
+tail -f /var/log/apache2/error.log   # Debian/Ubuntu
+tail -f /var/log/httpd/error_log     # CentOS/RHEL
 
-# 或通过 OVH 面板查看日志
+# 3. PHP-FPM 日志（如果使用 Nginx）
+tail -f /var/log/php-fpm/error.log
+
+# 4. 或通过 OVH 面板查看日志
 ```
+
+**📌 重要说明**:
+- 代码中已配置将日志写入 **项目的 `/logs/debug.log`** 文件
+- 确保 Web 服务器用户（如 `www-data`, `apache`）对该目录有写入权限
+- 如果项目日志为空，则可能需要检查目录权限或查看系统日志
 
 ### 4.3 🔍 判断标准
 
@@ -246,10 +278,25 @@ http://yourdomain.com/index.php?action=dts_eva&object_id=3
 
 | 文件 | 修改内容 | 行号 |
 |------|---------|------|
-| `dc_html/cp/index.php` | 添加 `error_log('CP index hit...')` | 5-6 |
-| `app/cp/dts/actions/dts_ev_add.php` | 添加 `error_log('DTS_EV_ADD reached')` | 2-3 |
+| `dc_html/cp/index.php` | 添加日志到 `/logs/debug.log` | 5-7 |
+| `app/cp/dts/actions/dts_ev_add.php` | 添加日志到 `/logs/debug.log` | 2-4 |
+| `logs/README.md` | 日志使用说明文档 | 新建 |
+| `logs/.gitignore` | 忽略 *.log 文件 | 新建 |
 
-**注意**: 这两个调试日志在问题解决后应该删除。
+**日志输出路径**: `/home/user/cccp/logs/debug.log`
+
+**日志格式**:
+```php
+// dc_html/cp/index.php (Line 6-7)
+$debug_log = dirname(dirname(__DIR__)) . '/logs/debug.log';
+error_log('[' . date('Y-m-d H:i:s') . '] CP index hit, action=' . ($_GET['action'] ?? 'none') . PHP_EOL, 3, $debug_log);
+
+// app/cp/dts/actions/dts_ev_add.php (Line 3-4)
+$debug_log = dirname(__DIR__, 3) . '/logs/debug.log';
+error_log('[' . date('Y-m-d H:i:s') . '] DTS_EV_ADD reached' . PHP_EOL, 3, $debug_log);
+```
+
+**注意**: 这些调试日志在问题解决后应该删除。详细的日志使用说明请查看 `logs/README.md`。
 
 ---
 
@@ -272,27 +319,62 @@ http://yourdomain.com/index.php?action=dts_eva&object_id=3
 
 ## 九、快速参考
 
-### 日志位置（常见路径）
+### 日志位置
+
+#### 项目调试日志（已配置）
 ```bash
+# 开发环境
+/home/user/cccp/logs/debug.log
+
+# 生产环境（相对于项目根目录）
+/path/to/cccp/logs/debug.log
+```
+
+#### 系统日志（常见路径）
+```bash
+# Apache 错误日志
+/var/log/apache2/error.log  # Debian/Ubuntu
+/var/log/httpd/error_log    # CentOS/RHEL
+
 # PHP 错误日志
 /var/log/php_errors.log
 /var/log/php/error.log
 
-# Apache 错误日志
-/var/log/apache2/error.log
-/var/log/httpd/error_log
+# PHP-FPM 日志
+/var/log/php-fpm/error.log
 
 # ModSecurity 审计日志
 /var/log/modsec_audit.log
 ```
 
 ### 快速测试命令
+
+#### 查看项目日志
 ```bash
-# 实时监控日志
+# 实时监控（推荐）
+tail -f /home/user/cccp/logs/debug.log
+
+# 搜索特定内容
+grep -E "CP index|DTS_EV_ADD" /home/user/cccp/logs/debug.log
+
+# 查看最后 50 行
+tail -n 50 /home/user/cccp/logs/debug.log
+```
+
+#### 查看系统日志
+```bash
+# 实时监控 Apache 日志
 tail -f /var/log/apache2/error.log | grep -E "CP index|DTS_EV_ADD|403"
 
 # 搜索历史日志
 grep -i "dts_ev_add" /var/log/apache2/error.log
+```
+
+#### 权限设置（如果需要）
+```bash
+# 确保日志目录可写
+chmod 777 /path/to/cccp/logs
+chmod 666 /path/to/cccp/logs/debug.log
 ```
 
 ---
