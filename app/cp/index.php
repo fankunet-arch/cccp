@@ -101,11 +101,11 @@ $protected_routes = [
     'dts_rule'                      => APP_PATH_CP . '/dts/views/dts_rule.php',
 
     // 事件管理
-    'dts_ev_edit'                   => APP_PATH_CP . '/dts/views/dts_view_quick.php', // Use Quick View as Unified Editor
-    'dts_ev_save'                   => APP_PATH_CP . '/dts/actions/dts_ev_save.php', // Deprecated but kept for legacy
-    'dts_ev_del'                    => APP_PATH_CP . '/dts/actions/dts_ev_del.php',
-    'dts_ev_add'                    => APP_PATH_CP . '/dts/actions/dts_ev_add.php', // [v2.1.2] 对象追加事件专用链路
-    'dts_timeline_delete'           => APP_PATH_CP . '/dts/actions/dts_timeline_delete.php', // [v2.1.1] 软删除事件
+    'dts_ev_edit'                   => APP_PATH_CP . '/dts/views/dts_view_quick.php', // [DEPRECATED v2.1.2] 旧的编辑入口，保留用于兼容性
+    'dts_ev_save'                   => APP_PATH_CP . '/dts/actions/dts_ev_save.php', // [DEPRECATED] 旧的保存入口
+    'dts_ev_del'                    => APP_PATH_CP . '/dts/actions/dts_ev_del.php',  // [DEPRECATED] 使用 dts_timeline_delete 替代
+    'dts_ev_add'                    => APP_PATH_CP . '/dts/actions/dts_ev_add.php', // [v2.1.2] 对象追加事件专用链路（推荐）
+    'dts_timeline_delete'           => APP_PATH_CP . '/dts/actions/dts_timeline_delete.php', // [v2.1.1] 软删除事件（推荐）
 
     // 极速录入 (Smart Quick Entry)
     'dts_quick'                     => APP_PATH_CP . '/dts/views/dts_view_quick.php', // 允许 dts_quick 访问
