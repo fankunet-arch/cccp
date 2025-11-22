@@ -40,11 +40,12 @@ if (!$object) {
 $state = dts_get_object_state($pdo, (int)$object_id);
 
 // 获取对象的事件列表（按日期倒序）
+// [v2.1.1] 增强：只显示未删除的事件
 $stmt = $pdo->prepare("
     SELECT e.*, r.rule_name
     FROM cp_dts_event e
     LEFT JOIN cp_dts_rule r ON e.rule_id = r.id
-    WHERE e.object_id = ?
+    WHERE e.object_id = ? AND e.is_deleted = 0
     ORDER BY e.event_date DESC, e.id DESC
 ");
 $stmt->execute([$object_id]);
@@ -230,12 +231,12 @@ $events = $stmt->fetchAll();
                                             <?php endif; ?>
                                         </div>
                                         <div class="timeline-footer">
-                                            <a href="<?php echo CP_BASE_URL; ?>dts_ev_edit&id=<?php echo $event['id']; ?>" class="btn btn-xs btn-primary">
+                                            <a href="<?php echo CP_BASE_URL; ?>dts_quick&id=<?php echo $event['id']; ?>" class="btn btn-xs btn-primary">
                                                 <i class="fas fa-edit"></i> 编辑
                                             </a>
-                                            <form action="<?php echo CP_BASE_URL; ?>dts_ev_del" method="post" style="display:inline;" onsubmit="return confirm('您确定要删除此事件吗？此操作无法撤销。');">
+                                            <!-- [v2.1.1] 使用新的软删除action -->
+                                            <form action="<?php echo CP_BASE_URL; ?>dts_timeline_delete" method="post" style="display:inline;" onsubmit="return confirm('确定删除此事件吗？\n删除后将重新计算对象状态。');">
                                                 <input type="hidden" name="event_id" value="<?php echo $event['id']; ?>">
-                                                <input type="hidden" name="object_id" value="<?php echo $object['id']; ?>">
                                                 <button type="submit" class="btn btn-xs btn-danger">
                                                     <i class="fas fa-trash"></i> 删除
                                                 </button>
