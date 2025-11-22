@@ -49,8 +49,9 @@ $event_types = [
         正在为对象【<?php echo htmlspecialchars($object['object_name']); ?>】添加新事件。
     </div>
 
-    <form action="<?php echo CP_BASE_URL; ?>dts_event_form" method="post" class="form-horizontal" autocomplete="off">
-        <!-- 隐藏字段：对象 ID -->
+    <form action="<?php echo CP_BASE_URL; ?>dts_ops" method="post" class="form-horizontal" autocomplete="off">
+        <!-- 隐藏字段：操作类型和对象 ID -->
+        <input type="hidden" name="op" value="ev_add">
         <input type="hidden" name="object_id" value="<?php echo $object['id']; ?>">
 
         <div class="row">

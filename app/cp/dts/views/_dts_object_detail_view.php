@@ -38,7 +38,7 @@ if (!isset($object, $events)) {
                            class="btn btn-sm btn-primary">
                             <i class="fas fa-edit"></i> 编辑对象
                         </a>
-                        <a href="<?php echo CP_BASE_URL; ?>dts_event_form&object_id=<?php echo $object['id']; ?>"
+                        <a href="<?php echo CP_BASE_URL; ?>dts_ops&op=ev_add&oid=<?php echo $object['id']; ?>"
                            class="btn btn-sm btn-success">
                            <i class="fas fa-plus"></i> 新增事件
                         </a>
@@ -159,7 +159,7 @@ if (!isset($object, $events)) {
                     <?php if (empty($events)): ?>
                         <div class="alert alert-info">
                             <i class="fas fa-info-circle"></i> 暂无事件记录。
-                            <a href="<?php echo CP_BASE_URL; ?>dts_event_form&object_id=<?php echo $object['id']; ?>">点击这里</a>
+                            <a href="<?php echo CP_BASE_URL; ?>dts_ops&op=ev_add&oid=<?php echo $object['id']; ?>">点击这里</a>
                             添加第一条事件。
                         </div>
                     <?php else: ?>

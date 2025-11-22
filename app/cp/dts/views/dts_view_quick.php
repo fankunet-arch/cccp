@@ -1,12 +1,12 @@
 <?php
 /**
- * DTS 极速录入 (Smart Quick Entry) - v2.1.2 Refactored
+ * DTS 极速录入 (Smart Quick Entry) - v2.1.3 Refactored
  *
  * [v2.1.2] 移除 mode=append 逻辑，专注于两个职责：
  * 1. 新建主体 + 对象 + 首次事件（无参数）
  * 2. 编辑已有事件（id=...）
  *
- * 注意：对象追加事件现在使用专用链路 dts_event_form
+ * [v2.1.3] 注意：对象追加事件现在使用安全网关 dts_ops&op=ev_add&oid=X
  */
 
 declare(strict_types=1);
