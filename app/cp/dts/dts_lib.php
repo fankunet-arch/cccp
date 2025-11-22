@@ -175,11 +175,12 @@ function dts_calculate_nodes(array $rule, string $base_date, ?int $current_milea
 function dts_update_object_state(PDO $pdo, int $object_id): bool {
     try {
         // 1. 获取该对象的最新"已完成"事件（按日期倒序）
+        // [v2.1.1] 增强：忽略已软删除的事件
         $stmt = $pdo->prepare("
             SELECT e.*, r.*
             FROM cp_dts_event e
             LEFT JOIN cp_dts_rule r ON e.rule_id = r.id
-            WHERE e.object_id = ? AND e.status = 'completed'
+            WHERE e.object_id = ? AND e.status = 'completed' AND e.is_deleted = 0
             ORDER BY e.event_date DESC, e.id DESC
             LIMIT 1
         ");
@@ -641,5 +642,175 @@ function dts_save_event(PDO $pdo, int $object_id, array $params) {
     } catch (Exception $e) {
         error_log("DTS: Error saving event: " . $e->getMessage());
         return false;
+    }
+}
+
+// ========================================
+// DTS v2.1.1 软删除功能
+// ========================================
+
+/**
+ * [v2.1.1] 软删除主体
+ *
+ * @param PDO $pdo 数据库连接
+ * @param int $subject_id 主体ID
+ * @param string $mode 删除模式: 'subject_only' 或 'cascade'
+ * @return array 返回结果 ['success' => bool, 'message' => string, 'stats' => array]
+ */
+function dts_soft_delete_subject(PDO $pdo, int $subject_id, string $mode = 'subject_only'): array {
+    try {
+        $pdo->beginTransaction();
+
+        // 统计该主体下的对象和事件数量
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM cp_dts_object WHERE subject_id = ? AND is_deleted = 0");
+        $stmt->execute([$subject_id]);
+        $object_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM cp_dts_event WHERE subject_id = ? AND is_deleted = 0");
+        $stmt->execute([$subject_id]);
+        $event_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+
+        // 软删除主体
+        $stmt = $pdo->prepare("UPDATE cp_dts_subject SET is_deleted = 1 WHERE id = ?");
+        $stmt->execute([$subject_id]);
+
+        $cascade_stats = ['objects' => 0, 'events' => 0];
+
+        if ($mode === 'cascade') {
+            // 级联软删除所有对象
+            $stmt = $pdo->prepare("UPDATE cp_dts_object SET is_deleted = 1 WHERE subject_id = ? AND is_deleted = 0");
+            $stmt->execute([$subject_id]);
+            $cascade_stats['objects'] = $stmt->rowCount();
+
+            // 级联软删除所有事件
+            $stmt = $pdo->prepare("UPDATE cp_dts_event SET is_deleted = 1 WHERE subject_id = ? AND is_deleted = 0");
+            $stmt->execute([$subject_id]);
+            $cascade_stats['events'] = $stmt->rowCount();
+        }
+
+        $pdo->commit();
+
+        return [
+            'success' => true,
+            'message' => '主体已成功删除',
+            'stats' => [
+                'object_count' => $object_count,
+                'event_count' => $event_count,
+                'deleted_objects' => $cascade_stats['objects'],
+                'deleted_events' => $cascade_stats['events']
+            ]
+        ];
+
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("DTS: Error soft deleting subject: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => '删除失败：' . $e->getMessage(),
+            'stats' => []
+        ];
+    }
+}
+
+/**
+ * [v2.1.1] 软删除对象
+ *
+ * @param PDO $pdo 数据库连接
+ * @param int $object_id 对象ID
+ * @param string $mode 删除模式: 'object_only' 或 'cascade'
+ * @return array 返回结果 ['success' => bool, 'message' => string, 'stats' => array]
+ */
+function dts_soft_delete_object(PDO $pdo, int $object_id, string $mode = 'object_only'): array {
+    try {
+        $pdo->beginTransaction();
+
+        // 统计该对象的事件数量
+        $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM cp_dts_event WHERE object_id = ? AND is_deleted = 0");
+        $stmt->execute([$object_id]);
+        $event_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+
+        // 软删除对象
+        $stmt = $pdo->prepare("UPDATE cp_dts_object SET is_deleted = 1 WHERE id = ?");
+        $stmt->execute([$object_id]);
+
+        $deleted_events = 0;
+
+        if ($mode === 'cascade') {
+            // 级联软删除所有事件
+            $stmt = $pdo->prepare("UPDATE cp_dts_event SET is_deleted = 1 WHERE object_id = ? AND is_deleted = 0");
+            $stmt->execute([$object_id]);
+            $deleted_events = $stmt->rowCount();
+        }
+
+        // 清空该对象的状态(因为对象已删除)
+        $stmt = $pdo->prepare("DELETE FROM cp_dts_object_state WHERE object_id = ?");
+        $stmt->execute([$object_id]);
+
+        $pdo->commit();
+
+        return [
+            'success' => true,
+            'message' => '对象已成功删除',
+            'stats' => [
+                'event_count' => $event_count,
+                'deleted_events' => $deleted_events
+            ]
+        ];
+
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("DTS: Error soft deleting object: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => '删除失败：' . $e->getMessage(),
+            'stats' => []
+        ];
+    }
+}
+
+/**
+ * [v2.1.1] 软删除事件
+ *
+ * @param PDO $pdo 数据库连接
+ * @param int $event_id 事件ID
+ * @return array 返回结果 ['success' => bool, 'message' => string, 'object_id' => int]
+ */
+function dts_soft_delete_event(PDO $pdo, int $event_id): array {
+    try {
+        // 获取事件所属的对象ID
+        $stmt = $pdo->prepare("SELECT object_id FROM cp_dts_event WHERE id = ?");
+        $stmt->execute([$event_id]);
+        $event = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$event) {
+            return [
+                'success' => false,
+                'message' => '事件不存在',
+                'object_id' => null
+            ];
+        }
+
+        $object_id = (int)$event['object_id'];
+
+        // 软删除事件
+        $stmt = $pdo->prepare("UPDATE cp_dts_event SET is_deleted = 1 WHERE id = ?");
+        $stmt->execute([$event_id]);
+
+        // 重新计算对象状态(基于剩余未删除的事件)
+        dts_update_object_state($pdo, $object_id);
+
+        return [
+            'success' => true,
+            'message' => '事件已成功删除',
+            'object_id' => $object_id
+        ];
+
+    } catch (Exception $e) {
+        error_log("DTS: Error soft deleting event: " . $e->getMessage());
+        return [
+            'success' => false,
+            'message' => '删除失败：' . $e->getMessage(),
+            'object_id' => null
+        ];
     }
 }
