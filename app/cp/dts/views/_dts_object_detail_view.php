@@ -1,56 +1,15 @@
 <?php
 /**
- * DTS 对象详情页（时间线视图）
- * (修复: 强制转换 object_id 为整型以避免 TypeError)
+ * DTS 对象详情页（纯视图）
+ * 注意：此文件不应包含重定向逻辑
+ * 所有数据准备和验证在 controller 中完成
  */
 
-declare(strict_types=1);
-
-// 加载 DTS 函数库
-require_once APP_PATH_CP . '/dts/dts_lib.php';
-
-global $pdo;
-
-// 获取对象 ID
-$object_id = dts_get('id');
-
-if (!$object_id) {
-    dts_set_feedback('danger', '缺少对象 ID');
-    header('Location: /cp/index.php?action=dts_object');
-    exit();
+// 确保必要的变量已由 controller 设置
+if (!isset($object, $events)) {
+    echo '<div class="alert alert-danger">系统错误：缺少必要数据</div>';
+    return;
 }
-
-// 获取对象信息
-$stmt = $pdo->prepare("
-    SELECT o.*, s.subject_name, s.subject_type
-    FROM cp_dts_object o
-    LEFT JOIN cp_dts_subject s ON o.subject_id = s.id
-    WHERE o.id = ?
-");
-$stmt->execute([$object_id]);
-$object = $stmt->fetch();
-
-if (!$object) {
-    dts_set_feedback('danger', '对象不存在');
-    header('Location: /cp/index.php?action=dts_object');
-    exit();
-}
-
-// [修复] 获取对象的当前状态 (强制转换为 int)
-$state = dts_get_object_state($pdo, (int)$object_id);
-
-// 获取对象的事件列表（按日期倒序）
-// [v2.1.1] 增强：只显示未删除的事件
-$stmt = $pdo->prepare("
-    SELECT e.*, r.rule_name
-    FROM cp_dts_event e
-    LEFT JOIN cp_dts_rule r ON e.rule_id = r.id
-    WHERE e.object_id = ? AND e.is_deleted = 0
-    ORDER BY e.event_date DESC, e.id DESC
-");
-$stmt->execute([$object_id]);
-$events = $stmt->fetchAll();
-
 ?>
 
 <link rel="stylesheet" href="/cp/dts/css/dts_style.css">

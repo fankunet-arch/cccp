@@ -92,7 +92,7 @@ $protected_routes = [
     // 对象管理
     'dts_object'                    => APP_PATH_CP . '/dts/views/dts_object.php',
     'dts_object_form'               => APP_PATH_CP . '/dts/views/dts_object_form.php',
-    'dts_object_detail'             => APP_PATH_CP . '/dts/views/dts_object_detail.php',
+    'dts_object_detail'             => APP_PATH_CP . '/dts/actions/dts_object_detail_controller.php', // [修复] 改为controller处理重定向
     'dts_object_save'               => APP_PATH_CP . '/dts/actions/dts_object_save.php',
 
     // 规则管理

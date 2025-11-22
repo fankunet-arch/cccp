@@ -13,10 +13,18 @@ require_once APP_PATH_CP . '/dts/dts_lib.php';
 
 global $pdo;
 
+// [调试] 记录dts_quick访问日志
+error_log("[DTS-Quick-Debug] Accessed dts_quick at " . date('Y-m-d H:i:s'));
+error_log("[DTS-Quick-Debug] GET params: " . json_encode($_GET));
+error_log("[DTS-Quick-Debug] Mode: " . ($_GET['mode'] ?? 'not set'));
+
 // --- 1. 模式判断与数据加载 ---
 $event_id = dts_get('id');
 $object_id_from_url = dts_get('object_id');
+$subject_id_from_url = dts_get('subject_id');
+$mode = dts_get('mode'); // 'append' for adding event to existing object
 $is_edit_mode = !empty($event_id);
+$is_append_mode = ($mode === 'append' && !empty($object_id_from_url));
 
 // 初始化默认值
 $form_data = [
@@ -69,7 +77,7 @@ if ($is_edit_mode) {
         $rules = dts_get_rules_for_view($pdo, $event['object_type_main'], $event['object_type_sub']);
     }
 } elseif ($object_id_from_url) {
-    $page_title = '新增事件';
+    $page_title = $is_append_mode ? '追加新事件' : '新增事件';
     // Fetch object + subject
     $stmt = $pdo->prepare("
         SELECT o.*, s.subject_name
@@ -155,28 +163,36 @@ if ($feedback) {
 <section class="content">
     <?php echo $feedback_html; ?>
 
+    <?php if ($is_append_mode): ?>
+    <div class="alert alert-info" style="margin-bottom: 20px;">
+        <i class="fas fa-info-circle"></i>
+        <strong>追加事件模式：</strong>
+        正在为对象【<?php echo htmlspecialchars($form_data['object_name']); ?>】追加新事件。
+        如修改上方主体/对象信息，将创建新的对象记录。
+    </div>
+    <?php endif; ?>
+
     <form action="<?php echo CP_BASE_URL; ?>dts_quick_save" method="post" class="form-horizontal" autocomplete="off">
-        <!-- Hidden fields for Edit Mode / Redirect -->
+        <!-- Hidden fields for Edit Mode / Redirect / Append Mode -->
         <input type="hidden" name="event_id" value="<?php echo htmlspecialchars((string)$event_id); ?>">
-        <input type="hidden" name="redirect_url" value="<?php echo htmlspecialchars((string)dts_get('redirect_url', '')); ?>">
+        <input type="hidden" name="mode" value="<?php echo htmlspecialchars((string)$mode); ?>">
+        <input type="hidden" name="original_object_id" value="<?php echo htmlspecialchars((string)$object_id_from_url); ?>">
         <?php
-            // If we have object_id from URL but not in edit mode, we might want to return to object detail
-            if (!$event_id && $object_id_from_url) {
-                // Cast object_id to int for safety when building URL
-                echo '<input type="hidden" name="redirect_url" value="'. CP_BASE_URL . 'dts_object_detail&id=' . (int)$object_id_from_url . '">';
-            } elseif ($event_id) {
-                 // If editing, try to return to referrer or object detail
-                 // This logic is handled by dts_action_quick_save if redirect_url is set.
-                 // We can set a default return to object detail if we know the object id.
-                 if (!empty($form_data['subject_id'])) { // abusing subject_id to check if data loaded
-                      // We need object id. We can get it from existing data if we query it.
-                      // Since we don't have object ID in $form_data explicitly as ID, but we can rely on HTTP_REFERER or just let user decide.
-                      // Let's check HTTP_REFERER
-                      if (isset($_SERVER['HTTP_REFERER']) && strpos($_SERVER['HTTP_REFERER'], 'dts_object_detail') !== false) {
-                           echo '<input type="hidden" name="redirect_url" value="'. htmlspecialchars($_SERVER['HTTP_REFERER']) . '">';
-                      }
-                 }
+            // 设置redirect_url：优先级：URL参数 > 对象详情页 > HTTP_REFERER > 默认空
+            $redirect_url = dts_get('redirect_url', '');
+
+            // 如果是追加模式或新增事件模式，返回到对象详情页
+            if (!$event_id && $object_id_from_url && empty($redirect_url)) {
+                $redirect_url = CP_BASE_URL . 'dts_object_detail&id=' . (int)$object_id_from_url;
             }
+            // 编辑模式：尝试返回到来源页面
+            elseif ($event_id && empty($redirect_url)) {
+                if (isset($_SERVER['HTTP_REFERER']) && strpos($_SERVER['HTTP_REFERER'], 'dts_object_detail') !== false) {
+                    $redirect_url = $_SERVER['HTTP_REFERER'];
+                }
+            }
+
+            echo '<input type="hidden" name="redirect_url" value="'. htmlspecialchars($redirect_url) . '">';
         ?>
 
         <div class="row">
