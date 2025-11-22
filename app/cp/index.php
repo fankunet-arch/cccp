@@ -88,12 +88,14 @@ $protected_routes = [
     'dts_subject'                   => APP_PATH_CP . '/dts/views/dts_subject.php',
     'dts_subject_save'              => APP_PATH_CP . '/dts/actions/dts_subject_save.php',
     'dts_subject_get_data'          => APP_PATH_CP . '/dts/actions/dts_subject_get_data.php',
+    'dts_subject_delete'            => APP_PATH_CP . '/dts/actions/dts_subject_delete.php', // [v2.1.1] 软删除主体
 
     // 对象管理
     'dts_object'                    => APP_PATH_CP . '/dts/views/dts_object.php',
     'dts_object_form'               => APP_PATH_CP . '/dts/views/dts_object_form.php',
     'dts_object_detail'             => APP_PATH_CP . '/dts/actions/dts_object_detail_controller.php', // [修复] 改为controller处理重定向
     'dts_object_save'               => APP_PATH_CP . '/dts/actions/dts_object_save.php',
+    'dts_object_delete'             => APP_PATH_CP . '/dts/actions/dts_object_delete.php', // [v2.1.1] 软删除对象
 
     // 规则管理
     'dts_rule'                      => APP_PATH_CP . '/dts/views/dts_rule.php',
@@ -102,6 +104,8 @@ $protected_routes = [
     'dts_ev_edit'                   => APP_PATH_CP . '/dts/views/dts_view_quick.php', // Use Quick View as Unified Editor
     'dts_ev_save'                   => APP_PATH_CP . '/dts/actions/dts_ev_save.php', // Deprecated but kept for legacy
     'dts_ev_del'                    => APP_PATH_CP . '/dts/actions/dts_ev_del.php',
+    'dts_ev_add'                    => APP_PATH_CP . '/dts/actions/dts_ev_add.php', // [v2.1.2] 对象追加事件专用链路
+    'dts_timeline_delete'           => APP_PATH_CP . '/dts/actions/dts_timeline_delete.php', // [v2.1.1] 软删除事件
 
     // 极速录入 (Smart Quick Entry)
     'dts_quick'                     => APP_PATH_CP . '/dts/views/dts_view_quick.php', // 允许 dts_quick 访问
