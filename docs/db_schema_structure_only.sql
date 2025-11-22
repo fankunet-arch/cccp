@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- 主机： mhdlmskp2kpxguj.mysql.db
--- 生成日期： 2025-11-19 14:50:41
+-- 生成日期： 2025-11-22 13:51:04
 -- 服务器版本： 8.4.6-6
 -- PHP 版本： 8.1.33
 
@@ -117,6 +117,7 @@ CREATE TABLE `cp_dts_object_state` (
   `next_cycle_date` date DEFAULT NULL COMMENT '下一次周期日期',
   `next_follow_up_date` date DEFAULT NULL COMMENT '下一次跟进日期',
   `next_mileage_suggest` int DEFAULT NULL COMMENT '建议下次里程',
+  `locked_until_date` date DEFAULT NULL COMMENT '锁定截止日期（Lock-in轨）',
   `last_event_id` int UNSIGNED DEFAULT NULL COMMENT '最后一个事件ID',
   `last_updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='DTS对象当前状态表';
@@ -143,6 +144,7 @@ CREATE TABLE `cp_dts_rule` (
   `mileage_interval` int DEFAULT NULL COMMENT '建议里程间隔（公里）',
   `follow_up_offset_days` int DEFAULT NULL COMMENT '跟进偏移天数',
   `follow_up_offset_months` int DEFAULT NULL COMMENT '跟进偏移月数',
+  `lock_days` int DEFAULT NULL COMMENT '锁定天数（事件后多少天内不可再次操作）',
   `rule_status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1=启用，0=禁用',
   `remark` text COLLATE utf8mb4_unicode_ci COMMENT '备注',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
