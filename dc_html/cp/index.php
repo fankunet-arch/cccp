@@ -3,7 +3,8 @@
 declare(strict_types=1);
 
 // [DEBUG] 记录所有请求到达入口
-error_log('CP index hit, action=' . ($_GET['action'] ?? 'none'));
+$debug_log = dirname(dirname(__DIR__)) . '/logs/debug.log';
+error_log('[' . date('Y-m-d H:i:s') . '] CP index hit, action=' . ($_GET['action'] ?? 'none') . PHP_EOL, 3, $debug_log);
 
 // ---------- 路径常量 ----------
 // [修复] BASE_PATH 应该指向项目根目录，而不是 /dc_html

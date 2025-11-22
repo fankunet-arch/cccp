@@ -1,6 +1,7 @@
 <?php
 // [DEBUG] 确认 dts_ev_add action 是否被执行
-error_log('DTS_EV_ADD reached');
+$debug_log = dirname(__DIR__, 3) . '/logs/debug.log';
+error_log('[' . date('Y-m-d H:i:s') . '] DTS_EV_ADD reached' . PHP_EOL, 3, $debug_log);
 
 /**
  * DTS v2.1.2 - 对象追加事件专用 Action
