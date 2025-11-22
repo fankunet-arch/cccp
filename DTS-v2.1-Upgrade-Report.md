@@ -134,6 +134,26 @@ LIMIT 1
 
 ## 3. Schema 改动
 
+### ⚠️ 重要: 数据库迁移步骤
+
+**对于现有数据库,请使用迁移脚本**:
+
+```bash
+# 导入迁移脚本(推荐方式)
+mysql -u [username] -p [database_name] < /app/cp/dts/migrations/dts_v2.1_migration.sql
+```
+
+或在 phpMyAdmin 中导入文件: `/app/cp/dts/migrations/dts_v2.1_migration.sql`
+
+**迁移脚本位置**: `/app/cp/dts/migrations/dts_v2.1_migration.sql`
+
+**迁移内容**:
+1. 添加 `cp_dts_rule.lock_days` 字段
+2. 添加 `cp_dts_object_state.locked_until_date` 字段
+3. 更新示例规则的 lock_days 值
+
+---
+
 ### 表名: `cp_dts_rule`
 
 | 字段名 | 类型 | 默认值 | 说明 |
