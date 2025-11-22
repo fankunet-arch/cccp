@@ -115,6 +115,14 @@ $events = $stmt->fetchAll();
                     <h3 class="box-title"><i class="fas fa-bell"></i> 当前状态与提醒</h3>
                 </div>
                 <div class="card-body">
+                    <?php if (!empty($state['locked_until_date']) && new DateTime($state['locked_until_date']) > new DateTime()): ?>
+                        <div class="alert alert-secondary" style="background-color: #e9ecef; border-color: #dee2e6; color: #383d41; margin-bottom: 20px;">
+                            <i class="fas fa-lock"></i> <strong>锁定中 (Locked-in)</strong>
+                            <br>
+                            此对象目前处于锁定保护期，直到 <strong><?php echo dts_format_date($state['locked_until_date']); ?></strong>。
+                        </div>
+                    <?php endif; ?>
+
                     <div class="row">
                         <?php if ($state['next_deadline_date']): ?>
                         <div class="col-md-4">

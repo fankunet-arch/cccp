@@ -1,7 +1,7 @@
 <?php
 /**
- * DTS 事件保存动作 (Event Save Action) - 重构版
- * 逻辑与新的 dts_ev_editor.php 对应。
+ * DTS 事件保存动作 (Event Save Action) - Refactored v2.1
+ * 使用统一的 dts_save_event 函数
  */
 declare(strict_types=1);
 require_once APP_PATH_CP . '/dts/dts_lib.php';
@@ -15,10 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 try {
     // --- 1. 获取核心数据 ---
-    $event_id = dts_post('event_id');
     $object_id = (int)dts_post('object_id');
     $subject_id = (int)dts_post('subject_id');
-
     $event_type = trim(dts_post('event_type', ''));
     $event_date = trim(dts_post('event_date', ''));
 
@@ -29,53 +27,24 @@ try {
         exit();
     }
 
-    // --- 3. 获取可选高级属性 ---
-    $rule_id = dts_post('rule_id') ?: null;
-    $expiry_date_new = dts_post('expiry_date_new') ?: null;
-    $mileage_now = dts_post('mileage_now') ?: null;
-    $note = trim(dts_post('note', ''));
+    // --- 3. 调用统一保存函数 ---
+    $event_params = [
+        'event_id' => dts_post('event_id'),
+        'subject_id' => $subject_id,
+        'event_type' => $event_type,
+        'event_date' => $event_date,
+        'rule_id' => dts_post('rule_id'),
+        'expiry_date_new' => dts_post('expiry_date_new'),
+        'mileage_now' => dts_post('mileage_now'),
+        'note' => trim(dts_post('note', ''))
+    ];
 
-    $is_edit_mode = !empty($event_id);
+    dts_save_event($pdo, $object_id, $event_params);
 
-    if ($is_edit_mode) {
-        // --- 更新 (UPDATE) ---
-        $stmt = $pdo->prepare("
-            UPDATE cp_dts_event SET
-                object_id = ?,
-                subject_id = ?,
-                rule_id = ?,
-                event_type = ?,
-                event_date = ?,
-                expiry_date_new = ?,
-                mileage_now = ?,
-                note = ?,
-                updated_at = NOW()
-            WHERE id = ?
-        ");
-        $stmt->execute([
-            $object_id, $subject_id, $rule_id, $event_type, $event_date,
-            $expiry_date_new, $mileage_now, $note,
-            $event_id
-        ]);
-        dts_set_feedback('success', '事件已成功更新。');
-    } else {
-        // --- 新增 (INSERT) ---
-        $stmt = $pdo->prepare("
-            INSERT INTO cp_dts_event
-            (object_id, subject_id, rule_id, event_type, event_date, expiry_date_new, mileage_now, note, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', NOW(), NOW())
-        ");
-        $stmt->execute([
-            $object_id, $subject_id, $rule_id, $event_type, $event_date,
-            $expiry_date_new, $mileage_now, $note
-        ]);
-        dts_set_feedback('success', '新事件已成功创建。');
-    }
+    $msg = dts_post('event_id') ? '事件已成功更新。' : '新事件已成功创建。';
+    dts_set_feedback('success', $msg);
 
-    // --- 4. 更新对象状态 ---
-    dts_update_object_state($pdo, $object_id);
-
-    // --- 5. 跳转 ---
+    // --- 4. 跳转 ---
     header("Location: " . CP_BASE_URL . "dts_object_detail&id=$object_id");
     exit();
 

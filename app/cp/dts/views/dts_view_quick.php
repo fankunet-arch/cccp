@@ -312,7 +312,7 @@ if ($feedback) {
                             <div class="compact-field-unit" style="grid-column: 1 / -1; margin-top: 10px; padding-top:10px; border-top:1px dashed #eee;">
                                 <label for="rule_id" style="color:#555;">关联规则</label>
                                 <select class="form-control" name="rule_id" id="rule_id">
-                                    <option value="">-- 不使用规则 --</option>
+                                    <option value="">-- 不使用规则 (自动匹配默认) --</option>
                                     <?php foreach ($rules as $rule): ?>
                                         <option value="<?php echo $rule['id']; ?>"
                                             <?php echo ($rule['id'] == $form_data['rule_id']) ? 'selected' : ''; ?>>
@@ -320,6 +320,9 @@ if ($feedback) {
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
+                                <p class="help-block" style="font-size:12px;color:#888;margin-top:4px;">
+                                    <i class="fas fa-magic"></i> 如未选择，系统将自动匹配适合该对象的默认规则（如存在）。
+                                </p>
                             </div>
                             <?php endif; ?>
 

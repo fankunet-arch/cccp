@@ -51,6 +51,15 @@ $future_date = (clone $today)->modify("+{$filter_days} days");
 $nodes = [];
 
 foreach ($objects as $obj) {
+    // Lock-in 状态检查
+    $is_locked = false;
+    if (!empty($obj['locked_until_date'])) {
+        $lock_date = new DateTime($obj['locked_until_date']);
+        if ($lock_date > $today) {
+            $is_locked = true;
+        }
+    }
+
     // 截止日
     if ($obj['next_deadline_date']) {
         $node_date = new DateTime($obj['next_deadline_date']);
@@ -64,7 +73,8 @@ foreach ($objects as $obj) {
                 'object_id' => $obj['id'],
                 'object_name' => $obj['object_name'],
                 'subject_name' => $obj['subject_name'],
-                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub']
+                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub'],
+                'is_locked' => $is_locked
             ];
         }
     }
@@ -82,7 +92,8 @@ foreach ($objects as $obj) {
                 'object_id' => $obj['id'],
                 'object_name' => $obj['object_name'],
                 'subject_name' => $obj['subject_name'],
-                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub']
+                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub'],
+                'is_locked' => $is_locked
             ];
         }
     }
@@ -100,7 +111,8 @@ foreach ($objects as $obj) {
                 'object_id' => $obj['id'],
                 'object_name' => $obj['object_name'],
                 'subject_name' => $obj['subject_name'],
-                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub']
+                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub'],
+                'is_locked' => $is_locked
             ];
         }
     }
@@ -118,7 +130,8 @@ foreach ($objects as $obj) {
                 'object_id' => $obj['id'],
                 'object_name' => $obj['object_name'],
                 'subject_name' => $obj['subject_name'],
-                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub']
+                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub'],
+                'is_locked' => $is_locked
             ];
         }
     }
@@ -264,9 +277,15 @@ if ($filter_type) {
                                                 </span>
                                             </td>
                                             <td>
-                                                <span class="urgency-badge urgency-<?php echo $node['urgency']; ?>">
-                                                    <?php echo $node['urgency_text']; ?>
-                                                </span>
+                                                <?php if (!empty($node['is_locked'])): ?>
+                                                    <span class="badge badge-default" style="background-color:#ccc;color:#333;">
+                                                        <i class="fas fa-lock"></i> 锁定中
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="urgency-badge urgency-<?php echo $node['urgency']; ?>">
+                                                        <?php echo $node['urgency_text']; ?>
+                                                    </span>
+                                                <?php endif; ?>
                                             </td>
                                             <td><?php echo htmlspecialchars($node['subject_name']); ?></td>
                                             <td>
