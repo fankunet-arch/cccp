@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS `cp_dts_rule` (
   `mileage_interval` INT(11) DEFAULT NULL COMMENT '建议里程间隔（公里）',
   `follow_up_offset_days` INT(11) DEFAULT NULL COMMENT '跟进偏移天数',
   `follow_up_offset_months` INT(11) DEFAULT NULL COMMENT '跟进偏移月数',
+  `lock_days` INT(11) DEFAULT NULL COMMENT '锁定天数（事件后多少天内不可再次操作）',
   `rule_status` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1=启用，0=禁用',
   `remark` TEXT DEFAULT NULL COMMENT '备注',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -146,6 +147,7 @@ CREATE TABLE IF NOT EXISTS `cp_dts_object_state` (
   `next_cycle_date` DATE DEFAULT NULL COMMENT '下一次周期日期',
   `next_follow_up_date` DATE DEFAULT NULL COMMENT '下一次跟进日期',
   `next_mileage_suggest` INT(11) DEFAULT NULL COMMENT '建议下次里程',
+  `locked_until_date` DATE DEFAULT NULL COMMENT '锁定截止日期（Lock-in轨）',
   `last_event_id` INT(11) UNSIGNED DEFAULT NULL COMMENT '最后一个事件ID',
   `last_updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
   PRIMARY KEY (`id`),
@@ -183,6 +185,13 @@ INSERT INTO `cp_dts_rule` (`rule_name`, `rule_type`, `base_field`, `cat_main`, `
 ('刹车片更换_2年规则_v1', 'last_done_based', 'last_done_date', '车辆', '刹车片', 730, 30000, 1, '刹车片更换：2年或30000公里');
 
 UPDATE `cp_dts_rule` SET `follow_up_offset_months` = 3 WHERE `rule_name` = 'NIE_递交跟进规则_v1';
+
+-- [DTS v2.1] 新增 lock_days 示例数据
+UPDATE `cp_dts_rule` SET `lock_days` = 30 WHERE `rule_name` = '中国护照_换发规则_v1';
+UPDATE `cp_dts_rule` SET `lock_days` = 30 WHERE `rule_name` = '西班牙护照_换发规则_v1';
+UPDATE `cp_dts_rule` SET `lock_days` = 60 WHERE `rule_name` = 'NIE_续期规则_v1';
+UPDATE `cp_dts_rule` SET `lock_days` = 90 WHERE `rule_name` = 'NIE_递交跟进规则_v1';
+UPDATE `cp_dts_rule` SET `lock_days` = 180 WHERE `rule_name` = '车辆整车保养_年度规则_v1';
 
 
 -- ========================================

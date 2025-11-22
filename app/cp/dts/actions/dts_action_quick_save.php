@@ -1,10 +1,11 @@
 <?php
 /**
- * DTS 极速录入保存 (Smart Save) - Unified Action
+ * DTS 极速录入保存 (Smart Save) - v2.1 Refactored
+ * [v2.1] 使用统一保存入口 + 默认规则自动匹配
  * 逻辑：
  * 1. 检查主体：有ID用ID；无ID则按名字创建新主体。
- * 2. 检查对象：在主体下查找同名对象。有则用；无则创建新对象。
- * 3. 保存事件：如果是更新则 UPDATE，否则 INSERT。
+ * 2. 调用 dts_save_object() 统一对象保存入口
+ * 3. 调用 dts_save_event() 统一事件保存入口（内含默认规则匹配+状态更新）
  */
 
 declare(strict_types=1);
@@ -40,55 +41,53 @@ try {
         }
     }
 
-    // --- 2. 处理对象 (Object) ---
+    // --- 2. [v2.1] 使用统一对象保存入口 ---
     $object_name = trim(dts_post('object_name', ''));
     $cat_main = trim(dts_post('cat_main', ''));
     $cat_sub = trim(dts_post('cat_sub', ''));
 
-    // 在该主体下查找是否已有该对象
-    $stmt_obj = $pdo->prepare("SELECT id FROM cp_dts_object WHERE subject_id = ? AND object_name = ? LIMIT 1");
-    $stmt_obj->execute([$subject_id, $object_name]);
-    $exist_obj = $stmt_obj->fetch();
+    $object_id = dts_save_object($pdo, (int)$subject_id, $object_name, [
+        'cat_main' => $cat_main,
+        'cat_sub' => $cat_sub ?: null,
+        'identifier' => null,
+        'remark' => null
+    ]);
 
-    $object_id = null;
-    if ($exist_obj) {
-        $object_id = $exist_obj['id'];
-        // 可选：如果老对象没有分类，顺便更新一下分类？这里暂不覆盖，以老数据为准
-    } else {
-        // 创建新对象
-        $stmt_new_o = $pdo->prepare("INSERT INTO cp_dts_object (subject_id, object_name, object_type_main, object_type_sub, active_flag, created_at, updated_at) VALUES (?, ?, ?, ?, 1, NOW(), NOW())");
-        // cat_sub 为空则存 NULL
-        $stmt_new_o->execute([$subject_id, $object_name, $cat_main, $cat_sub ?: null]);
-        $object_id = $pdo->lastInsertId();
+    if (!$object_id) {
+        throw new Exception('对象保存失败');
     }
 
-    // --- 3. 保存事件 (Event) ---
-    $event_id = dts_post('event_id');
-    $event_date = dts_post('event_date');
-    $event_type = dts_post('event_type');
-    $mileage = dts_post('mileage_now') ?: null;
-    $expiry = dts_post('expiry_date_new') ?: null;
-    $note = trim(dts_post('note', ''));
-    $rule_id = dts_post('rule_id') ?: null;
+    // --- 3. [v2.1] 使用统一事件保存入口（含默认规则匹配） ---
+    $event_params = [
+        'subject_id' => (int)$subject_id,
+        'event_type' => dts_post('event_type'),
+        'event_date' => dts_post('event_date'),
+        'rule_id' => dts_post('rule_id') ?: null,
+        'expiry_date_new' => dts_post('expiry_date_new') ?: null,
+        'mileage_now' => dts_post('mileage_now') ?: null,
+        'note' => trim(dts_post('note', '')),
+        'event_id' => dts_post('event_id') ?: null, // 编辑模式
+        // [v2.1] 提供分类信息用于默认规则匹配
+        'cat_main' => $cat_main,
+        'cat_sub' => $cat_sub ?: null
+    ];
 
-    if ($event_id) {
-        // UPDATE
-        $stmt_ev = $pdo->prepare("UPDATE cp_dts_event SET object_id=?, subject_id=?, rule_id=?, event_type=?, event_date=?, mileage_now=?, expiry_date_new=?, note=?, updated_at=NOW() WHERE id=?");
-        $stmt_ev->execute([$object_id, $subject_id, $rule_id, $event_type, $event_date, $mileage, $expiry, $note, $event_id]);
+    $saved_event_id = dts_save_event($pdo, (int)$object_id, $event_params);
+
+    if (!$saved_event_id) {
+        throw new Exception('事件保存失败');
+    }
+
+    // 设置反馈消息
+    if (!empty($event_params['event_id'])) {
         dts_set_feedback('success', "记录已更新！(主体: {$subject_name_input} - 对象: {$object_name})");
     } else {
-        // INSERT
-        $stmt_ev = $pdo->prepare("INSERT INTO cp_dts_event (object_id, subject_id, rule_id, event_type, event_date, mileage_now, expiry_date_new, note, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', NOW(), NOW())");
-        $stmt_ev->execute([$object_id, $subject_id, $rule_id, $event_type, $event_date, $mileage, $expiry, $note]);
         dts_set_feedback('success', "记录已保存！(主体: {$subject_name_input} - 对象: {$object_name})");
     }
 
-    // --- 4. 触发状态计算 ---
-    dts_update_object_state($pdo, (int)$object_id);
-
     $pdo->commit();
 
-    // --- 5. 跳转 ---
+    // --- 4. 跳转 ---
     $redirect_url = dts_post('redirect_url');
     if ($redirect_url) {
         header('Location: ' . $redirect_url);
@@ -99,7 +98,7 @@ try {
 
 } catch (Exception $e) {
     $pdo->rollBack();
-    error_log("DTS Quick Save Error: " . $e->getMessage());
+    error_log("DTS Quick Save Error (v2.1): " . $e->getMessage());
     dts_set_feedback('danger', '保存失败：' . $e->getMessage());
 
     $redirect_url = dts_post('redirect_url');

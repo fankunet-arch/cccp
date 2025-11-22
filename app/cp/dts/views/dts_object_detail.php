@@ -115,6 +115,35 @@ $events = $stmt->fetchAll();
                     <h3 class="box-title"><i class="fas fa-bell"></i> 当前状态与提醒</h3>
                 </div>
                 <div class="card-body">
+                    <?php
+                    // [v2.1] 检查锁定状态
+                    $is_locked = false;
+                    $lock_status_text = '';
+                    if (!empty($state['locked_until_date'])) {
+                        $today = new DateTime('today');
+                        $locked_date = new DateTime($state['locked_until_date']);
+                        $is_locked = $locked_date >= $today;
+                        if ($is_locked) {
+                            $days_left = $today->diff($locked_date)->days;
+                            $lock_status_text = "锁定中，解锁日期：" . dts_format_date($state['locked_until_date']) . " (剩余 {$days_left} 天)";
+                        } else {
+                            $lock_status_text = "已解锁";
+                        }
+                    }
+                    ?>
+                    <?php if (!empty($state['locked_until_date'])): ?>
+                    <div class="row" style="margin-bottom: 15px;">
+                        <div class="col-md-12">
+                            <div class="alert alert-<?php echo $is_locked ? 'warning' : 'success'; ?>" style="display:flex; align-items:center; gap:10px;">
+                                <i class="fas fa-<?php echo $is_locked ? 'lock' : 'unlock'; ?>" style="font-size:24px;"></i>
+                                <div>
+                                    <strong><?php echo $is_locked ? '🔒 锁定状态' : '✓ 已解锁'; ?></strong><br>
+                                    <span><?php echo $lock_status_text; ?></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                     <div class="row">
                         <?php if ($state['next_deadline_date']): ?>
                         <div class="col-md-4">
