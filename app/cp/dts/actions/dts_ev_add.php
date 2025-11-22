@@ -1,7 +1,7 @@
 <?php
-// [DEBUG] 确认 dts_event_form action 是否被执行
-$debug_log = dirname(__DIR__, 3) . '/logs/debug.log';
-error_log('[' . date('Y-m-d H:i:s') . '] DTS_EVENT_FORM reached' . PHP_EOL, 3, $debug_log);
+// [v2.1.3] 注释掉独立日志，使用 dts_ops gateway 统一记录
+// $debug_log = dirname(__DIR__, 3) . '/logs/debug.log';
+// error_log('[' . date('Y-m-d H:i:s') . '] DTS_EVENT_FORM reached' . PHP_EOL, 3, $debug_log);
 
 /**
  * DTS v2.1.2 - 对象追加事件专用 Action
@@ -47,14 +47,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         // 对象不存在或已删除，显示错误提示（不用 header 403）
         $error_message = '对象不存在或已删除，无法新增事件。';
         $view_file = APP_PATH_CP . '/dts/views/dts_ev_add.php';
-        require APP_PATH_CP . '/includes/header.php';
+        require APP_PATH_CP . '/views/layouts/header.php';
         echo '<section class="content">';
         echo '<div class="alert alert-danger">';
         echo '<i class="fas fa-exclamation-triangle"></i> ' . htmlspecialchars($error_message);
         echo '<br><br><a href="' . CP_BASE_URL . 'dts_object" class="btn btn-primary">返回对象列表</a>';
         echo '</div>';
         echo '</section>';
-        require APP_PATH_CP . '/includes/footer.php';
+        require APP_PATH_CP . '/views/layouts/footer.php';
         exit();
     }
 
@@ -65,9 +65,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
     // 加载视图
     $view_file = APP_PATH_CP . '/dts/views/dts_ev_add.php';
-    require APP_PATH_CP . '/includes/header.php';
+    require APP_PATH_CP . '/views/layouts/header.php';
     require $view_file;
-    require APP_PATH_CP . '/includes/footer.php';
+    require APP_PATH_CP . '/views/layouts/footer.php';
     exit();
 }
 
