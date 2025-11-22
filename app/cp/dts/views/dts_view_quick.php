@@ -320,6 +320,12 @@ if ($feedback) {
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
+                                <div class="field-hint" style="margin-top:5px; padding-left:0;">
+                                    <span class="text-info">
+                                        <i class="fas fa-info-circle"></i>
+                                        [v2.1] 如未手动选择规则，系统将根据大类/小类自动匹配默认规则（如存在）
+                                    </span>
+                                </div>
                             </div>
                             <?php endif; ?>
 

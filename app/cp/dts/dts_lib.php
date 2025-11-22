@@ -166,13 +166,15 @@ function dts_calculate_nodes(array $rule, string $base_date, ?int $current_milea
 /**
  * 更新对象的当前状态
  * [核心逻辑]：每次事件保存后调用，计算该对象接下来的重要日期
- * * @param PDO $pdo 数据库连接
+ * [v2.1] 增强：支持双轨状态计算（Deadline轨 + Lock-in轨）
+ *
+ * @param PDO $pdo 数据库连接
  * @param int $object_id 对象ID
  * @return bool 成功返回 true
  */
 function dts_update_object_state(PDO $pdo, int $object_id): bool {
     try {
-        // 1. 获取该对象的最新“已完成”事件（按日期倒序）
+        // 1. 获取该对象的最新"已完成"事件（按日期倒序）
         $stmt = $pdo->prepare("
             SELECT e.*, r.*
             FROM cp_dts_event e
@@ -224,10 +226,22 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
             }
         }
         
-        // 情况B：[极速录入兼容] 无规则，但事件里直接填了“新过期日”
+        // 情况B：[极速录入兼容] 无规则，但事件里直接填了"新过期日"
         // 此时直接把这个过期日当做 deadline，不计算窗口期
         if (empty($nodes['deadline_date']) && !empty($latest_event['expiry_date_new'])) {
             $nodes['deadline_date'] = $latest_event['expiry_date_new'];
+        }
+
+        // [v2.1] Lock-in轨：计算锁定截止日期
+        $locked_until = null;
+        if (!empty($latest_event['lock_days']) && $latest_event['lock_days'] > 0) {
+            try {
+                $event_dt = new DateTime($latest_event['event_date']);
+                $event_dt->modify("+{$latest_event['lock_days']} days");
+                $locked_until = $event_dt->format('Y-m-d');
+            } catch (Exception $e) {
+                error_log("DTS v2.1: Error calculating locked_until_date: " . $e->getMessage());
+            }
         }
 
         // 3. 更新或插入状态表
@@ -244,6 +258,7 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
             ':cycle' => $nodes['cycle_next_date'] ?? null,
             ':follow_up' => $nodes['follow_up_date'] ?? null,
             ':mileage' => $nodes['next_mileage_suggest'] ?? null,
+            ':locked_until' => $locked_until,
             ':event_id' => $latest_event['id']
         ];
 
@@ -257,6 +272,7 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
                     next_cycle_date = :cycle,
                     next_follow_up_date = :follow_up,
                     next_mileage_suggest = :mileage,
+                    locked_until_date = :locked_until,
                     last_event_id = :event_id,
                     last_updated_at = NOW()
                 WHERE object_id = :object_id
@@ -266,8 +282,10 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
             $stmt = $pdo->prepare("
                 INSERT INTO cp_dts_object_state
                 (object_id, next_deadline_date, next_window_start_date, next_window_end_date,
-                 next_cycle_date, next_follow_up_date, next_mileage_suggest, last_event_id, last_updated_at)
-                VALUES (:object_id, :deadline, :window_start, :window_end, :cycle, :follow_up, :mileage, :event_id, NOW())
+                 next_cycle_date, next_follow_up_date, next_mileage_suggest, locked_until_date,
+                 last_event_id, last_updated_at)
+                VALUES (:object_id, :deadline, :window_start, :window_end, :cycle, :follow_up, :mileage,
+                        :locked_until, :event_id, NOW())
             ");
         }
 
@@ -433,4 +451,195 @@ function dts_get_feedback(): ?array {
         return $feedback;
     }
     return null;
+}
+
+// ========================================
+// DTS v2.1 新增功能
+// ========================================
+
+/**
+ * [v2.1] 获取默认规则
+ * 根据大类和小类自动匹配规则，优先级：
+ * 1. 小类匹配 (cat_sub != '')
+ * 2. 大类匹配 (cat_main)
+ * 3. 全局匹配 (cat_main = 'ALL')
+ *
+ * @param PDO $pdo 数据库连接
+ * @param string $cat_main 大类
+ * @param string|null $cat_sub 小类（可选）
+ * @return array|null 返回匹配的规则数组，无匹配返回 null
+ */
+function dts_get_default_rule(PDO $pdo, string $cat_main, ?string $cat_sub = null): ?array {
+    try {
+        // 优先匹配：小类 > 大类 > ALL
+        // ORDER BY: cat_sub DESC (有值的排前面), id DESC (取最新)
+        $sql = "
+            SELECT * FROM cp_dts_rule
+            WHERE rule_status = 1
+              AND (
+                  (cat_main = ? AND cat_sub = ?)
+                  OR (cat_main = ? AND (cat_sub IS NULL OR cat_sub = ''))
+                  OR (cat_main = 'ALL')
+              )
+            ORDER BY
+              CASE
+                WHEN cat_sub = ? AND cat_sub != '' THEN 1
+                WHEN cat_main = ? AND (cat_sub IS NULL OR cat_sub = '') THEN 2
+                ELSE 3
+              END,
+              id DESC
+            LIMIT 1
+        ";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$cat_main, $cat_sub ?: '', $cat_main, $cat_sub ?: '', $cat_main]);
+        $rule = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $rule ?: null;
+
+    } catch (Exception $e) {
+        error_log("DTS: Error getting default rule: " . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * [v2.1] 统一对象保存入口
+ * 在指定主体下创建或获取对象
+ *
+ * @param PDO $pdo 数据库连接
+ * @param int $subject_id 主体ID
+ * @param string $object_name 对象名称
+ * @param array $params 对象参数 ['cat_main', 'cat_sub', 'identifier', 'remark']
+ * @return int|false 返回对象ID，失败返回 false
+ */
+function dts_save_object(PDO $pdo, int $subject_id, string $object_name, array $params) {
+    try {
+        // 查找是否已存在同名对象
+        $stmt = $pdo->prepare("
+            SELECT id FROM cp_dts_object
+            WHERE subject_id = ? AND object_name = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$subject_id, $object_name]);
+        $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($existing) {
+            // 对象已存在，返回现有ID（不覆盖分类等信息，保持旧数据）
+            return (int)$existing['id'];
+        }
+
+        // 创建新对象
+        $stmt = $pdo->prepare("
+            INSERT INTO cp_dts_object
+            (subject_id, object_name, object_type_main, object_type_sub, identifier, remark, active_flag, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
+        ");
+
+        $stmt->execute([
+            $subject_id,
+            $object_name,
+            $params['cat_main'] ?? '',
+            $params['cat_sub'] ?? null,
+            $params['identifier'] ?? null,
+            $params['remark'] ?? null
+        ]);
+
+        return (int)$pdo->lastInsertId();
+
+    } catch (Exception $e) {
+        error_log("DTS: Error saving object: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * [v2.1] 统一事件保存入口
+ * 创建或更新事件，支持默认规则自动匹配
+ *
+ * @param PDO $pdo 数据库连接
+ * @param int $object_id 对象ID
+ * @param array $params 事件参数
+ *   必需: 'subject_id', 'event_type', 'event_date'
+ *   可选: 'rule_id', 'expiry_date_new', 'mileage_now', 'note', 'event_id'(更新模式)
+ *   可选: 'cat_main', 'cat_sub' (用于自动匹配默认规则)
+ * @return int|false 返回事件ID，失败返回 false
+ */
+function dts_save_event(PDO $pdo, int $object_id, array $params) {
+    try {
+        $event_id = $params['event_id'] ?? null;
+        $is_update = !empty($event_id);
+
+        // [v2.1] 默认规则逻辑：如果未提供 rule_id，尝试自动匹配
+        $rule_id = $params['rule_id'] ?? null;
+
+        if (empty($rule_id) && !empty($params['cat_main'])) {
+            $default_rule = dts_get_default_rule(
+                $pdo,
+                $params['cat_main'],
+                $params['cat_sub'] ?? null
+            );
+
+            if ($default_rule) {
+                $rule_id = $default_rule['id'];
+                error_log("DTS v2.1: Auto-matched default rule #{$rule_id} for {$params['cat_main']}/{$params['cat_sub']}");
+            }
+        }
+
+        // 准备数据
+        $data = [
+            'object_id' => $object_id,
+            'subject_id' => $params['subject_id'],
+            'rule_id' => $rule_id ?: null,
+            'event_type' => $params['event_type'],
+            'event_date' => $params['event_date'],
+            'expiry_date_new' => $params['expiry_date_new'] ?? null,
+            'mileage_now' => $params['mileage_now'] ?? null,
+            'note' => $params['note'] ?? null
+        ];
+
+        if ($is_update) {
+            // 更新模式
+            $stmt = $pdo->prepare("
+                UPDATE cp_dts_event SET
+                    object_id = :object_id,
+                    subject_id = :subject_id,
+                    rule_id = :rule_id,
+                    event_type = :event_type,
+                    event_date = :event_date,
+                    expiry_date_new = :expiry_date_new,
+                    mileage_now = :mileage_now,
+                    note = :note,
+                    updated_at = NOW()
+                WHERE id = :event_id
+            ");
+
+            $data['event_id'] = $event_id;
+            $stmt->execute($data);
+
+            $final_event_id = (int)$event_id;
+        } else {
+            // 插入模式
+            $stmt = $pdo->prepare("
+                INSERT INTO cp_dts_event
+                (object_id, subject_id, rule_id, event_type, event_date,
+                 expiry_date_new, mileage_now, note, status, created_at, updated_at)
+                VALUES
+                (:object_id, :subject_id, :rule_id, :event_type, :event_date,
+                 :expiry_date_new, :mileage_now, :note, 'completed', NOW(), NOW())
+            ");
+
+            $stmt->execute($data);
+            $final_event_id = (int)$pdo->lastInsertId();
+        }
+
+        // 触发状态更新
+        dts_update_object_state($pdo, $object_id);
+
+        return $final_event_id;
+
+    } catch (Exception $e) {
+        error_log("DTS: Error saving event: " . $e->getMessage());
+        return false;
+    }
 }

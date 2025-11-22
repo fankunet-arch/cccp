@@ -51,6 +51,9 @@ $future_date = (clone $today)->modify("+{$filter_days} days");
 $nodes = [];
 
 foreach ($objects as $obj) {
+    // [v2.1] 获取锁定状态
+    $locked_until = $obj['locked_until_date'] ?? null;
+
     // 截止日
     if ($obj['next_deadline_date']) {
         $node_date = new DateTime($obj['next_deadline_date']);
@@ -64,7 +67,8 @@ foreach ($objects as $obj) {
                 'object_id' => $obj['id'],
                 'object_name' => $obj['object_name'],
                 'subject_name' => $obj['subject_name'],
-                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub']
+                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub'],
+                'locked_until' => $locked_until
             ];
         }
     }
@@ -82,7 +86,8 @@ foreach ($objects as $obj) {
                 'object_id' => $obj['id'],
                 'object_name' => $obj['object_name'],
                 'subject_name' => $obj['subject_name'],
-                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub']
+                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub'],
+                'locked_until' => $locked_until
             ];
         }
     }
@@ -100,7 +105,8 @@ foreach ($objects as $obj) {
                 'object_id' => $obj['id'],
                 'object_name' => $obj['object_name'],
                 'subject_name' => $obj['subject_name'],
-                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub']
+                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub'],
+                'locked_until' => $locked_until
             ];
         }
     }
@@ -118,7 +124,8 @@ foreach ($objects as $obj) {
                 'object_id' => $obj['id'],
                 'object_name' => $obj['object_name'],
                 'subject_name' => $obj['subject_name'],
-                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub']
+                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub'],
+                'locked_until' => $locked_until
             ];
         }
     }
@@ -253,8 +260,16 @@ if ($filter_type) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($nodes as $node): ?>
-                                        <tr class="urgency-row urgency-<?php echo $node['urgency']; ?>">
+                                    <?php foreach ($nodes as $node):
+                                        // [v2.1] 检查是否锁定中
+                                        $is_locked = false;
+                                        if (!empty($node['locked_until'])) {
+                                            $today = new DateTime('today');
+                                            $locked_date = new DateTime($node['locked_until']);
+                                            $is_locked = $locked_date >= $today;
+                                        }
+                                    ?>
+                                        <tr class="urgency-row urgency-<?php echo $node['urgency']; ?> <?php echo $is_locked ? 'dts-locked' : ''; ?>">
                                             <td>
                                                 <strong><?php echo dts_format_date($node['date'], 'Y-m-d'); ?></strong>
                                             </td>
@@ -271,6 +286,11 @@ if ($filter_type) {
                                             <td><?php echo htmlspecialchars($node['subject_name']); ?></td>
                                             <td>
                                                 <strong><?php echo htmlspecialchars($node['object_name']); ?></strong>
+                                                <?php if ($is_locked): ?>
+                                                    <span class="label label-default" style="margin-left:5px;" title="锁定至 <?php echo $node['locked_until']; ?>">
+                                                        <i class="fas fa-lock"></i> 锁定中
+                                                    </span>
+                                                <?php endif; ?>
                                             </td>
                                             <td><?php echo htmlspecialchars($node['category']); ?></td>
                                             <td>
