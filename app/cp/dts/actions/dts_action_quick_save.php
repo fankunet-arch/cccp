@@ -61,7 +61,13 @@ try {
             'mileage_now' => dts_post('mileage_now') ?: null,
             'note' => trim(dts_post('note', '')),
             'cat_main' => $object['object_type_main'],
-            'cat_sub' => $object['object_type_sub'] ?: null
+            'cat_sub' => $object['object_type_sub'] ?: null,
+            // [v2.1.3] 自定义日期字段
+            'custom_lock_date' => dts_post('custom_lock_date') ?: null,
+            'custom_window_start' => dts_post('custom_window_start') ?: null,
+            'custom_window_end' => dts_post('custom_window_end') ?: null,
+            'custom_follow_up_date' => dts_post('custom_follow_up_date') ?: null,
+            'rule_mode' => dts_post('rule_mode', 'auto') // 规则模式
         ];
 
         // 调用统一事件保存入口
@@ -135,7 +141,13 @@ try {
         'event_id' => dts_post('event_id') ?: null, // 编辑模式
         // [v2.1] 提供分类信息用于默认规则匹配
         'cat_main' => $cat_main,
-        'cat_sub' => $cat_sub ?: null
+        'cat_sub' => $cat_sub ?: null,
+        // [v2.1.3] 自定义日期字段
+        'custom_lock_date' => dts_post('custom_lock_date') ?: null,
+        'custom_window_start' => dts_post('custom_window_start') ?: null,
+        'custom_window_end' => dts_post('custom_window_end') ?: null,
+        'custom_follow_up_date' => dts_post('custom_follow_up_date') ?: null,
+        'rule_mode' => dts_post('rule_mode', 'auto') // 规则模式
     ];
 
     $saved_event_id = dts_save_event($pdo, (int)$object_id, $event_params);

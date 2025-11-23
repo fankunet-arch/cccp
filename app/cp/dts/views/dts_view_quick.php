@@ -35,7 +35,13 @@ $form_data = [
     'note' => '',
     'mileage_now' => '',
     'expiry_date_new' => '',
-    'rule_id' => ''
+    'rule_id' => '',
+    // [v2.1.3] 自定义日期字段
+    'custom_lock_date' => '',
+    'custom_window_start' => '',
+    'custom_window_end' => '',
+    'custom_follow_up_date' => '',
+    'rule_mode' => 'auto' // 默认模式：auto, select, custom
 ];
 
 $page_title = '极速录入';
@@ -69,6 +75,25 @@ if ($is_edit_mode) {
         $form_data['mileage_now'] = $event['mileage_now'];
         $form_data['expiry_date_new'] = $event['expiry_date_new'];
         $form_data['rule_id'] = $event['rule_id'];
+
+        // [v2.1.3] 加载自定义日期字段
+        $form_data['custom_lock_date'] = $event['custom_lock_date'] ?? '';
+        $form_data['custom_window_start'] = $event['custom_window_start'] ?? '';
+        $form_data['custom_window_end'] = $event['custom_window_end'] ?? '';
+        $form_data['custom_follow_up_date'] = $event['custom_follow_up_date'] ?? '';
+
+        // [v2.1.3] 自动判断规则模式
+        if (!empty($event['custom_lock_date']) || !empty($event['custom_window_start'])
+            || !empty($event['custom_window_end']) || !empty($event['custom_follow_up_date'])) {
+            // 有自定义字段 → 模式 C
+            $form_data['rule_mode'] = 'custom';
+        } elseif (!empty($event['rule_id'])) {
+            // 有指定规则 → 模式 B
+            $form_data['rule_mode'] = 'select';
+        } else {
+            // 默认规则 → 模式 A
+            $form_data['rule_mode'] = 'auto';
+        }
 
         // Load rules for this object type
         $rules = dts_get_rules_for_view($pdo, $event['object_type_main'], $event['object_type_sub']);
@@ -334,27 +359,105 @@ if ($feedback) {
                                        value="<?php echo htmlspecialchars((string)$form_data['expiry_date_new']); ?>">
                             </div>
 
-                            <!-- Rule Selector (Hidden by default unless rules exist or user wants to see it) -->
-                            <?php if (!empty($rules) || $is_edit_mode): ?>
-                            <div class="compact-field-unit" style="grid-column: 1 / -1; margin-top: 10px; padding-top:10px; border-top:1px dashed #eee;">
-                                <label for="rule_id" style="color:#555;">关联规则</label>
-                                <select class="form-control" name="rule_id" id="rule_id">
-                                    <option value="">-- 不使用规则 --</option>
-                                    <?php foreach ($rules as $rule): ?>
-                                        <option value="<?php echo $rule['id']; ?>"
-                                            <?php echo ($rule['id'] == $form_data['rule_id']) ? 'selected' : ''; ?>>
-                                            <?php echo htmlspecialchars($rule['rule_name']); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <div class="field-hint" style="margin-top:5px; padding-left:0;">
-                                    <span class="text-info">
-                                        <i class="fas fa-info-circle"></i>
-                                        [v2.1] 如未手动选择规则，系统将根据大类/小类自动匹配默认规则（如存在）
-                                    </span>
+                            <!-- [v2.1.3] 规则模式选择器 -->
+                            <div class="compact-field-unit" style="grid-column: 1 / -1; margin-top: 20px; padding-top:15px; border-top:2px solid #3498db;">
+                                <label style="color:#2c3e50; font-weight:600; margin-bottom:10px;">
+                                    <i class="fas fa-cog"></i> 规则模式 *
+                                </label>
+                                <div style="flex: 1;">
+                                    <div style="display:flex; gap:15px; margin-bottom:15px;">
+                                        <label style="width:auto; min-width:0; text-align:left; font-weight:normal; cursor:pointer;">
+                                            <input type="radio" name="rule_mode" value="auto" id="rule_mode_auto"
+                                                <?php echo ($form_data['rule_mode'] === 'auto') ? 'checked' : ''; ?>>
+                                            <strong>模式 A：自动匹配</strong> <span class="text-muted">（系统根据分类自动选择）</span>
+                                        </label>
+                                        <label style="width:auto; min-width:0; text-align:left; font-weight:normal; cursor:pointer;">
+                                            <input type="radio" name="rule_mode" value="select" id="rule_mode_select"
+                                                <?php echo ($form_data['rule_mode'] === 'select') ? 'checked' : ''; ?>>
+                                            <strong>模式 B：指定规则</strong> <span class="text-muted">（手动选择特定规则）</span>
+                                        </label>
+                                        <label style="width:auto; min-width:0; text-align:left; font-weight:normal; cursor:pointer;">
+                                            <input type="radio" name="rule_mode" value="custom" id="rule_mode_custom"
+                                                <?php echo ($form_data['rule_mode'] === 'custom') ? 'checked' : ''; ?>>
+                                            <strong>模式 C：自定义</strong> <span class="text-muted">（手动设置具体日期）</span>
+                                        </label>
+                                    </div>
+
+                                    <!-- 模式 A：自动匹配（无额外输入） -->
+                                    <div id="mode_auto_content" class="rule-mode-content" style="display:none; padding:15px; background:#e8f5e9; border-radius:8px; margin-top:10px;">
+                                        <p style="margin:0; color:#27ae60;">
+                                            <i class="fas fa-check-circle"></i>
+                                            系统将根据对象的大类和小类，自动匹配默认启用的规则。无需额外配置。
+                                        </p>
+                                    </div>
+
+                                    <!-- 模式 B：指定规则 -->
+                                    <div id="mode_select_content" class="rule-mode-content" style="display:none; padding:15px; background:#fff3cd; border-radius:8px; margin-top:10px;">
+                                        <label for="rule_id" style="color:#555; font-weight:600; margin-bottom:8px; display:block;">
+                                            选择规则 *
+                                        </label>
+                                        <select class="form-control" name="rule_id" id="rule_id" style="max-width:500px;">
+                                            <option value="">-- 请选择规则 --</option>
+                                            <?php foreach ($rules as $rule): ?>
+                                                <option value="<?php echo $rule['id']; ?>"
+                                                    <?php echo ($rule['id'] == $form_data['rule_id']) ? 'selected' : ''; ?>>
+                                                    <?php echo htmlspecialchars($rule['rule_name']); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <p class="text-info" style="margin-top:8px; margin-bottom:0; font-size:13px;">
+                                            <i class="fas fa-info-circle"></i>
+                                            选择的规则将强制应用于此事件，覆盖自动匹配逻辑。
+                                        </p>
+                                    </div>
+
+                                    <!-- 模式 C：自定义日期 -->
+                                    <div id="mode_custom_content" class="rule-mode-content" style="display:none; padding:15px; background:#ffe8e8; border-radius:8px; margin-top:10px;">
+                                        <p class="text-warning" style="margin-bottom:15px; font-size:13px;">
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                            <strong>自定义模式</strong>：直接设置具体日期，不依赖任何规则。适用于完全非标准化的业务场景。
+                                        </p>
+
+                                        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:15px;">
+                                            <div>
+                                                <label for="custom_lock_date" style="color:#e74c3c; font-weight:600; margin-bottom:5px; display:block;">
+                                                    锁定截止日 (Lock-in Date)
+                                                </label>
+                                                <input type="date" class="form-control date-clickable" name="custom_lock_date" id="custom_lock_date"
+                                                       value="<?php echo htmlspecialchars((string)$form_data['custom_lock_date']); ?>">
+                                                <small class="text-muted">事件锁定至此日期，期间不可再次操作</small>
+                                            </div>
+
+                                            <div>
+                                                <label for="custom_follow_up_date" style="color:#3498db; font-weight:600; margin-bottom:5px; display:block;">
+                                                    跟进日期 (Follow-up Date)
+                                                </label>
+                                                <input type="date" class="form-control date-clickable" name="custom_follow_up_date" id="custom_follow_up_date"
+                                                       value="<?php echo htmlspecialchars((string)$form_data['custom_follow_up_date']); ?>">
+                                                <small class="text-muted">下次跟进/检查的日期</small>
+                                            </div>
+
+                                            <div>
+                                                <label for="custom_window_start" style="color:#27ae60; font-weight:600; margin-bottom:5px; display:block;">
+                                                    窗口期开始 (Window Start)
+                                                </label>
+                                                <input type="date" class="form-control date-clickable" name="custom_window_start" id="custom_window_start"
+                                                       value="<?php echo htmlspecialchars((string)$form_data['custom_window_start']); ?>">
+                                                <small class="text-muted">可办理/操作的最早日期</small>
+                                            </div>
+
+                                            <div>
+                                                <label for="custom_window_end" style="color:#f39c12; font-weight:600; margin-bottom:5px; display:block;">
+                                                    窗口期结束 (Window End)
+                                                </label>
+                                                <input type="date" class="form-control date-clickable" name="custom_window_end" id="custom_window_end"
+                                                       value="<?php echo htmlspecialchars((string)$form_data['custom_window_end']); ?>">
+                                                <small class="text-muted">可办理/操作的最晚日期</small>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <?php endif; ?>
 
                         </div>
                     </div>
@@ -498,6 +601,102 @@ if ($feedback) {
     if (catMain.value) {
         triggerEvent(catMain, 'change');
     }
+
+    // ====================================================
+    // [v2.1.3] 规则模式切换逻辑
+    // ====================================================
+
+    const ruleModeRadios = document.querySelectorAll('input[name="rule_mode"]');
+    const modeAutoContent = document.getElementById('mode_auto_content');
+    const modeSelectContent = document.getElementById('mode_select_content');
+    const modeCustomContent = document.getElementById('mode_custom_content');
+
+    // 模式切换函数
+    function switchRuleMode(mode) {
+        // 先隐藏所有内容区域
+        $('.rule-mode-content').slideUp(250);
+
+        // 根据选中的模式显示对应区域
+        setTimeout(function() {
+            if (mode === 'auto') {
+                $(modeAutoContent).slideDown(250);
+            } else if (mode === 'select') {
+                $(modeSelectContent).slideDown(250);
+            } else if (mode === 'custom') {
+                $(modeCustomContent).slideDown(250);
+            }
+        }, 100);
+    }
+
+    // 绑定单选按钮变化事件
+    ruleModeRadios.forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            if (this.checked) {
+                switchRuleMode(this.value);
+            }
+        });
+    });
+
+    // 页面加载时，根据当前选中的模式显示对应内容
+    const checkedMode = document.querySelector('input[name="rule_mode"]:checked');
+    if (checkedMode) {
+        switchRuleMode(checkedMode.value);
+    }
+
+    // ====================================================
+    // [v2.1.3] 日期输入框交互优化
+    // ====================================================
+    // 确保点击日期输入框的任何位置都能弹出日期选择器
+
+    function enhanceDateInputs() {
+        const dateInputs = document.querySelectorAll('input[type="date"]');
+
+        dateInputs.forEach(function(input) {
+            // 方案1：点击整个输入框区域时触发 showPicker（如果浏览器支持）
+            input.addEventListener('click', function(e) {
+                // 检查是否支持 showPicker API
+                if (typeof this.showPicker === 'function') {
+                    try {
+                        this.showPicker();
+                    } catch (err) {
+                        // 部分浏览器可能在某些情况下抛出异常，忽略即可
+                    }
+                } else {
+                    // 降级方案：聚焦输入框
+                    this.focus();
+                }
+            });
+
+            // 方案2：添加 wrapper，扩大可点击区域
+            // 确保父容器点击也能触发日期选择器
+            if (input.parentElement) {
+                input.parentElement.style.cursor = 'pointer';
+                input.parentElement.addEventListener('click', function(e) {
+                    if (e.target !== input && !input.contains(e.target)) {
+                        input.click();
+                    }
+                });
+            }
+        });
+    }
+
+    // 页面加载时增强所有日期输入框
+    enhanceDateInputs();
+
+    // 动态添加的日期输入框（模式切换后）也需要增强
+    // 使用 MutationObserver 监听 DOM 变化（可选，但为了保险起见）
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.addedNodes.length) {
+                enhanceDateInputs();
+            }
+        });
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
 
 })();
 </script>
