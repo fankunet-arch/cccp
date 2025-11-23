@@ -12,9 +12,9 @@
   function applyTheme(mode){ const el=document.documentElement; if(mode==='auto') el.removeAttribute('data-theme'); else el.setAttribute('data-theme', mode); }
 
   /* [MODIFIED] Date */
-  // 使用 PHP 注入的日期作为约束
-  const MIN_DATE = '<?php echo $min_date; ?>';
-  const MAX_DATE = '<?php echo $max_date; ?>';
+  // [FIX] Removed PHP tags which are not parsed in .js files. Using safe defaults.
+  const MIN_DATE = '2020-01-01';
+  const MAX_DATE = moment().format('YYYY-MM-DD');
 
   var start = moment().subtract(24, 'months').startOf('day');
   var end   = moment(MAX_DATE).endOf('day'); // 默认结束日期为今天
