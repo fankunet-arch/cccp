@@ -449,51 +449,48 @@ if ($feedback) {
                                             <strong>自定义模式</strong>：直接设置具体日期，不依赖任何规则。适用于完全非标准化的业务场景。
                                         </p>
 
-                                        <div style="display:grid; grid-template-columns: 1fr 1fr; column-gap:20px; row-gap:18px; max-width:900px;">
-                                            <!-- 锁定截止日 -->
-                                            <div>
-                                                <label for="custom_lock_date" style="color:#e74c3c; font-weight:600; margin-bottom:6px; display:block; font-size:14px;">
-                                                    锁定截止日 (Lock-in Date)
-                                                </label>
-                                                <input type="date" class="form-control date-clickable" name="custom_lock_date" id="custom_lock_date"
-                                                       value="<?php echo htmlspecialchars((string)$form_data['custom_lock_date']); ?>"
-                                                       style="width:100%; margin:0; padding:8px;">
-                                                <small class="text-muted" style="margin-top:4px; display:block; font-size:12px;">事件锁定至此日期，期间不可再次操作</small>
-                                            </div>
-
-                                            <!-- 跟进日期 -->
-                                            <div>
-                                                <label for="custom_follow_up_date" style="color:#3498db; font-weight:600; margin-bottom:6px; display:block; font-size:14px;">
-                                                    跟进日期 (Follow-up Date)
-                                                </label>
-                                                <input type="date" class="form-control date-clickable" name="custom_follow_up_date" id="custom_follow_up_date"
-                                                       value="<?php echo htmlspecialchars((string)$form_data['custom_follow_up_date']); ?>"
-                                                       style="width:100%; margin:0; padding:8px;">
-                                                <small class="text-muted" style="margin-top:4px; display:block; font-size:12px;">下次跟进/检查的日期</small>
-                                            </div>
-
-                                            <!-- 窗口期开始 -->
-                                            <div>
-                                                <label for="custom_window_start" style="color:#27ae60; font-weight:600; margin-bottom:6px; display:block; font-size:14px;">
-                                                    窗口期开始 (Window Start)
-                                                </label>
-                                                <input type="date" class="form-control date-clickable" name="custom_window_start" id="custom_window_start"
-                                                       value="<?php echo htmlspecialchars((string)$form_data['custom_window_start']); ?>"
-                                                       style="width:100%; margin:0; padding:8px;">
-                                                <small class="text-muted" style="margin-top:4px; display:block; font-size:12px;">可办理/操作的最早日期</small>
-                                            </div>
-
-                                            <!-- 窗口期结束 -->
-                                            <div>
-                                                <label for="custom_window_end" style="color:#f39c12; font-weight:600; margin-bottom:6px; display:block; font-size:14px;">
-                                                    窗口期结束 (Window End)
-                                                </label>
-                                                <input type="date" class="form-control date-clickable" name="custom_window_end" id="custom_window_end"
-                                                       value="<?php echo htmlspecialchars((string)$form_data['custom_window_end']); ?>"
-                                                       style="width:100%; margin:0; padding:8px;">
-                                                <small class="text-muted" style="margin-top:4px; display:block; font-size:12px;">可办理/操作的最晚日期</small>
-                                            </div>
-                                        </div>
+                                        <table style="width:100%; max-width:900px; border-collapse:separate; border-spacing:0;">
+                                            <tr>
+                                                <td style="width:50%; padding:0 10px 15px 0; vertical-align:top;">
+                                                    <label for="custom_lock_date" style="color:#e74c3c; font-weight:600; margin:0 0 5px 0; display:block; font-size:14px; padding:0;">
+                                                        锁定截止日 (Lock-in Date)
+                                                    </label>
+                                                    <input type="date" class="date-clickable" name="custom_lock_date" id="custom_lock_date"
+                                                           value="<?php echo htmlspecialchars((string)$form_data['custom_lock_date']); ?>"
+                                                           style="width:100%; padding:8px; margin:0; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+                                                    <div style="margin:5px 0 0 0; font-size:12px; color:#999;">事件锁定至此日期，期间不可再次操作</div>
+                                                </td>
+                                                <td style="width:50%; padding:0 0 15px 10px; vertical-align:top;">
+                                                    <label for="custom_follow_up_date" style="color:#3498db; font-weight:600; margin:0 0 5px 0; display:block; font-size:14px; padding:0;">
+                                                        跟进日期 (Follow-up Date)
+                                                    </label>
+                                                    <input type="date" class="date-clickable" name="custom_follow_up_date" id="custom_follow_up_date"
+                                                           value="<?php echo htmlspecialchars((string)$form_data['custom_follow_up_date']); ?>"
+                                                           style="width:100%; padding:8px; margin:0; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+                                                    <div style="margin:5px 0 0 0; font-size:12px; color:#999;">下次跟进/检查的日期</div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="width:50%; padding:0 10px 0 0; vertical-align:top;">
+                                                    <label for="custom_window_start" style="color:#27ae60; font-weight:600; margin:0 0 5px 0; display:block; font-size:14px; padding:0;">
+                                                        窗口期开始 (Window Start)
+                                                    </label>
+                                                    <input type="date" class="date-clickable" name="custom_window_start" id="custom_window_start"
+                                                           value="<?php echo htmlspecialchars((string)$form_data['custom_window_start']); ?>"
+                                                           style="width:100%; padding:8px; margin:0; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+                                                    <div style="margin:5px 0 0 0; font-size:12px; color:#999;">可办理/操作的最早日期</div>
+                                                </td>
+                                                <td style="width:50%; padding:0 0 0 10px; vertical-align:top;">
+                                                    <label for="custom_window_end" style="color:#f39c12; font-weight:600; margin:0 0 5px 0; display:block; font-size:14px; padding:0;">
+                                                        窗口期结束 (Window End)
+                                                    </label>
+                                                    <input type="date" class="date-clickable" name="custom_window_end" id="custom_window_end"
+                                                           value="<?php echo htmlspecialchars((string)$form_data['custom_window_end']); ?>"
+                                                           style="width:100%; padding:8px; margin:0; border:1px solid #ddd; border-radius:4px; box-sizing:border-box; font-size:14px;">
+                                                    <div style="margin:5px 0 0 0; font-size:12px; color:#999;">可办理/操作的最晚日期</div>
+                                                </td>
+                                            </tr>
+                                        </table>
                                     </div>
                                 </div>
                             </div>
