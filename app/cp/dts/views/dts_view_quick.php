@@ -157,7 +157,7 @@ $event_types = [
 // Helper to get rules (since we couldn't find the original function, we implement a local one)
 function dts_get_rules_for_view($pdo, $main_cat, $sub_cat) {
     try {
-        $sql = "SELECT id, rule_name FROM cp_dts_rule WHERE (cat_main = ? OR cat_main = 'ALL')";
+        $sql = "SELECT id, rule_name, cat_main, cat_sub, lock_days FROM cp_dts_rule WHERE rule_status = 1 AND (cat_main = ? OR cat_main = 'ALL')";
         $params = [$main_cat];
 
         if ($sub_cat) {
@@ -174,6 +174,13 @@ function dts_get_rules_for_view($pdo, $main_cat, $sub_cat) {
     } catch (Exception $e) {
         return [];
     }
+}
+
+// [v2.1.3] 在新建模式下，预加载所有启用的规则供前端动态显示
+if (!$is_edit_mode && !$is_ev_add_mode) {
+    // 加载所有启用的规则，前端会根据用户选择的分类进行筛选
+    $stmt = $pdo->query("SELECT id, rule_name, cat_main, cat_sub, lock_days FROM cp_dts_rule WHERE rule_status = 1 ORDER BY cat_main, cat_sub, rule_name");
+    $rules = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 
@@ -361,25 +368,40 @@ if ($feedback) {
 
                             <!-- [v2.1.3] 规则模式选择器 -->
                             <div class="compact-field-unit" style="grid-column: 1 / -1; margin-top: 20px; padding-top:15px; border-top:2px solid #3498db;">
-                                <label style="color:#2c3e50; font-weight:600; margin-bottom:10px;">
-                                    <i class="fas fa-cog"></i> 规则模式 *
-                                </label>
-                                <div style="flex: 1;">
-                                    <div style="display:flex; gap:15px; margin-bottom:15px;">
-                                        <label style="width:auto; min-width:0; text-align:left; font-weight:normal; cursor:pointer;">
+                                <div style="width:100%; margin-bottom:15px;">
+                                    <label style="color:#2c3e50; font-weight:600; margin-bottom:15px; display:block; font-size:15px;">
+                                        <i class="fas fa-cog"></i> 规则模式 *
+                                    </label>
+                                    <div style="display:flex; gap:20px; width:100%; justify-content:space-between;">
+                                        <label style="flex:1; padding:15px; border:2px solid #e0e0e0; border-radius:10px; text-align:center; font-weight:normal; cursor:pointer; transition:all 0.3s; background:#fff;"
+                                               class="rule-mode-option" data-mode="auto">
                                             <input type="radio" name="rule_mode" value="auto" id="rule_mode_auto"
-                                                <?php echo ($form_data['rule_mode'] === 'auto') ? 'checked' : ''; ?>>
-                                            <strong>模式 A：自动匹配</strong> <span class="text-muted">（系统根据分类自动选择）</span>
+                                                <?php echo ($form_data['rule_mode'] === 'auto') ? 'checked' : ''; ?>
+                                                style="margin-right:8px; transform:scale(1.2);">
+                                            <div style="margin-top:8px;">
+                                                <strong style="font-size:14px; color:#27ae60;">模式 A：自动匹配</strong>
+                                                <div class="text-muted" style="font-size:12px; margin-top:5px;">系统根据分类自动选择</div>
+                                            </div>
                                         </label>
-                                        <label style="width:auto; min-width:0; text-align:left; font-weight:normal; cursor:pointer;">
+                                        <label style="flex:1; padding:15px; border:2px solid #e0e0e0; border-radius:10px; text-align:center; font-weight:normal; cursor:pointer; transition:all 0.3s; background:#fff;"
+                                               class="rule-mode-option" data-mode="select">
                                             <input type="radio" name="rule_mode" value="select" id="rule_mode_select"
-                                                <?php echo ($form_data['rule_mode'] === 'select') ? 'checked' : ''; ?>>
-                                            <strong>模式 B：指定规则</strong> <span class="text-muted">（手动选择特定规则）</span>
+                                                <?php echo ($form_data['rule_mode'] === 'select') ? 'checked' : ''; ?>
+                                                style="margin-right:8px; transform:scale(1.2);">
+                                            <div style="margin-top:8px;">
+                                                <strong style="font-size:14px; color:#f39c12;">模式 B：指定规则</strong>
+                                                <div class="text-muted" style="font-size:12px; margin-top:5px;">手动选择特定规则</div>
+                                            </div>
                                         </label>
-                                        <label style="width:auto; min-width:0; text-align:left; font-weight:normal; cursor:pointer;">
+                                        <label style="flex:1; padding:15px; border:2px solid #e0e0e0; border-radius:10px; text-align:center; font-weight:normal; cursor:pointer; transition:all 0.3s; background:#fff;"
+                                               class="rule-mode-option" data-mode="custom">
                                             <input type="radio" name="rule_mode" value="custom" id="rule_mode_custom"
-                                                <?php echo ($form_data['rule_mode'] === 'custom') ? 'checked' : ''; ?>>
-                                            <strong>模式 C：自定义</strong> <span class="text-muted">（手动设置具体日期）</span>
+                                                <?php echo ($form_data['rule_mode'] === 'custom') ? 'checked' : ''; ?>
+                                                style="margin-right:8px; transform:scale(1.2);">
+                                            <div style="margin-top:8px;">
+                                                <strong style="font-size:14px; color:#e74c3c;">模式 C：自定义</strong>
+                                                <div class="text-muted" style="font-size:12px; margin-top:5px;">手动设置具体日期</div>
+                                            </div>
                                         </label>
                                     </div>
 
@@ -396,18 +418,27 @@ if ($feedback) {
                                         <label for="rule_id" style="color:#555; font-weight:600; margin-bottom:8px; display:block;">
                                             选择规则 *
                                         </label>
-                                        <select class="form-control" name="rule_id" id="rule_id" style="max-width:500px;">
+                                        <select class="form-control" name="rule_id" id="rule_id" style="width:100%; max-width:800px;">
                                             <option value="">-- 请选择规则 --</option>
                                             <?php foreach ($rules as $rule): ?>
                                                 <option value="<?php echo $rule['id']; ?>"
                                                     <?php echo ($rule['id'] == $form_data['rule_id']) ? 'selected' : ''; ?>>
                                                     <?php echo htmlspecialchars($rule['rule_name']); ?>
+                                                    <?php if (!empty($rule['cat_main'])): ?>
+                                                        - [<?php echo htmlspecialchars($rule['cat_main']); ?><?php echo !empty($rule['cat_sub']) ? '/' . htmlspecialchars($rule['cat_sub']) : ''; ?>]
+                                                    <?php endif; ?>
+                                                    <?php if (!empty($rule['lock_days'])): ?>
+                                                        <span style="color:#e74c3c;">(🔒 锁定<?php echo $rule['lock_days']; ?>天)</span>
+                                                    <?php endif; ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
                                         <p class="text-info" style="margin-top:8px; margin-bottom:0; font-size:13px;">
                                             <i class="fas fa-info-circle"></i>
                                             选择的规则将强制应用于此事件，覆盖自动匹配逻辑。
+                                            <?php if (count($rules) === 0): ?>
+                                                <span class="text-warning"><br><i class="fas fa-exclamation-triangle"></i> 当前没有可用规则，请先在<a href="<?php echo CP_BASE_URL; ?>dts_rule" target="_blank">规则管理</a>中创建规则。</span>
+                                            <?php endif; ?>
                                         </p>
                                     </div>
 
@@ -633,14 +664,32 @@ if ($feedback) {
         radio.addEventListener('change', function() {
             if (this.checked) {
                 switchRuleMode(this.value);
+                updateModeCardStyles(this.value);
             }
         });
     });
+
+    // 更新模式卡片的选中样式
+    function updateModeCardStyles(selectedMode) {
+        document.querySelectorAll('.rule-mode-option').forEach(function(card) {
+            const cardMode = card.getAttribute('data-mode');
+            if (cardMode === selectedMode) {
+                card.style.borderColor = '#3498db';
+                card.style.backgroundColor = '#e3f2fd';
+                card.style.boxShadow = '0 4px 12px rgba(52, 152, 219, 0.3)';
+            } else {
+                card.style.borderColor = '#e0e0e0';
+                card.style.backgroundColor = '#fff';
+                card.style.boxShadow = 'none';
+            }
+        });
+    }
 
     // 页面加载时，根据当前选中的模式显示对应内容
     const checkedMode = document.querySelector('input[name="rule_mode"]:checked');
     if (checkedMode) {
         switchRuleMode(checkedMode.value);
+        updateModeCardStyles(checkedMode.value);
     }
 
     // ====================================================
