@@ -270,6 +270,18 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
                 }
             }
 
+            // [v2.1.3] Deadline推断逻辑：如果规则没有生成deadline，尝试从其他节点推断
+            if (empty($nodes['deadline_date'])) {
+                // 优先级：window_end > cycle_next > follow_up
+                if (!empty($nodes['window_end_date'])) {
+                    $nodes['deadline_date'] = $nodes['window_end_date'];
+                } elseif (!empty($nodes['cycle_next_date'])) {
+                    $nodes['deadline_date'] = $nodes['cycle_next_date'];
+                } elseif (!empty($nodes['follow_up_date'])) {
+                    $nodes['deadline_date'] = $nodes['follow_up_date'];
+                }
+            }
+
         } else {
             // 【优先级 3】模式 A：无规则且无自定义字段
             // 兼容极速录入：如果事件里直接填了"新过期日"，用它作为 deadline

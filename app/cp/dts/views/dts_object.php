@@ -62,11 +62,13 @@ switch ($filter_sort) {
 $sql = "
     SELECT o.*,
            s.subject_name, s.subject_type,
-           st.next_deadline_date, 
-           st.next_window_start_date, 
+           st.next_deadline_date,
+           st.next_window_start_date,
            st.next_window_end_date,
            st.next_cycle_date,
+           st.next_follow_up_date,
            st.next_mileage_suggest,
+           st.locked_until_date,
            st.last_updated_at
     FROM cp_dts_object o
     LEFT JOIN cp_dts_subject s ON o.subject_id = s.id
@@ -193,7 +195,15 @@ $subjects = $pdo->query("SELECT id, subject_name FROM cp_dts_subject WHERE subje
                                     $deadline = $row['next_deadline_date'] ?? $row['next_cycle_date'];
                                     $urgency_class = '';
                                     $urgency_text = '正常';
-                                    
+
+                                    // [v2.1.3] 检查是否锁定中
+                                    $is_locked = false;
+                                    if (!empty($row['locked_until_date'])) {
+                                        $today = new DateTime('today');
+                                        $locked_date = new DateTime($row['locked_until_date']);
+                                        $is_locked = $locked_date >= $today;
+                                    }
+
                                     if ($deadline) {
                                         $days = dts_days_from_today($deadline);
                                         if ($days < 0) {
@@ -213,7 +223,7 @@ $subjects = $pdo->query("SELECT id, subject_name FROM cp_dts_subject WHERE subje
                                         $urgency_text = '无计划';
                                         $urgency_class = 'default';
                                     }
-                                    
+
                                     // 行高亮：如果非常紧急，给整行加淡红背景
                                     $row_style = ($urgency_class === 'danger') ? 'background-color:#fff5f5;' : '';
                                 ?>
@@ -292,6 +302,14 @@ $subjects = $pdo->query("SELECT id, subject_name FROM cp_dts_subject WHERE subje
                                             </span>
                                         <?php else: ?>
                                             <span class="badge badge-secondary" style="opacity:0.5; font-size:12px; padding:5px 8px; display:inline-block; width:100%;">闲置</span>
+                                        <?php endif; ?>
+
+                                        <?php if ($is_locked): ?>
+                                            <div style="margin-top:5px;">
+                                                <span class="label label-default" style="font-size:11px; background:#95a5a6; color:#fff;" title="锁定至 <?php echo $row['locked_until_date']; ?>">
+                                                    <i class="fas fa-lock"></i> 锁定至 <?php echo substr($row['locked_until_date'], 5); ?>
+                                                </span>
+                                            </div>
                                         <?php endif; ?>
                                     </td>
 
