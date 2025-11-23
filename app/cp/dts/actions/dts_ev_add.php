@@ -108,7 +108,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'note' => trim(dts_post('note', '')),
             // 提供分类信息用于默认规则匹配
             'cat_main' => $object['object_type_main'],
-            'cat_sub' => $object['object_type_sub'] ?? null
+            'cat_sub' => $object['object_type_sub'] ?? null,
+            // [v2.1.3] 自定义日期字段
+            'custom_lock_date' => dts_post('custom_lock_date') ?: null,
+            'custom_window_start' => dts_post('custom_window_start') ?: null,
+            'custom_window_end' => dts_post('custom_window_end') ?: null,
+            'custom_follow_up_date' => dts_post('custom_follow_up_date') ?: null,
+            'rule_mode' => dts_post('rule_mode', 'auto') // 规则模式
         ];
 
         // 验证必填字段

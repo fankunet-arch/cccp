@@ -167,6 +167,7 @@ function dts_calculate_nodes(array $rule, string $base_date, ?int $current_milea
  * 更新对象的当前状态
  * [核心逻辑]：每次事件保存后调用，计算该对象接下来的重要日期
  * [v2.1] 增强：支持双轨状态计算（Deadline轨 + Lock-in轨）
+ * [v2.1.3] 增强：实现优先级规则（自定义 > 指定规则 > 默认规则）
  *
  * @param PDO $pdo 数据库连接
  * @param int $object_id 对象ID
@@ -195,9 +196,41 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
 
         // 2. 根据事件和规则计算节点
         $nodes = [];
+        $locked_until = null;
 
-        // 情况A：有规则关联，按规则计算
-        if (!empty($latest_event['rule_id']) && !empty($latest_event['rule_type'])) {
+        // [v2.1.3] 优先级规则：最高优先级 - 自定义字段
+        $has_custom_fields = !empty($latest_event['custom_lock_date'])
+            || !empty($latest_event['custom_window_start'])
+            || !empty($latest_event['custom_window_end'])
+            || !empty($latest_event['custom_follow_up_date']);
+
+        if ($has_custom_fields) {
+            // 【优先级 1】模式 C：使用自定义字段，直接赋值
+            error_log("DTS v2.1.3: Using custom fields for object #{$object_id}");
+
+            if (!empty($latest_event['custom_lock_date'])) {
+                $locked_until = $latest_event['custom_lock_date'];
+            }
+            if (!empty($latest_event['custom_window_start'])) {
+                $nodes['window_start_date'] = $latest_event['custom_window_start'];
+            }
+            if (!empty($latest_event['custom_window_end'])) {
+                $nodes['window_end_date'] = $latest_event['custom_window_end'];
+            }
+            if (!empty($latest_event['custom_follow_up_date'])) {
+                $nodes['follow_up_date'] = $latest_event['custom_follow_up_date'];
+            }
+
+            // 自定义模式下，如果没有设置 deadline，可能需要从其他字段推断
+            // 例如：window_end 可以作为 deadline 的候选
+            if (empty($nodes['deadline_date']) && !empty($nodes['window_end_date'])) {
+                $nodes['deadline_date'] = $nodes['window_end_date'];
+            }
+
+        } elseif (!empty($latest_event['rule_id']) && !empty($latest_event['rule_type'])) {
+            // 【优先级 2】模式 B：有规则关联，按规则计算
+            error_log("DTS v2.1.3: Using rule #{$latest_event['rule_id']} for object #{$object_id}");
+
             $rule = [
                 'rule_type' => $latest_event['rule_type'],
                 'base_field' => $latest_event['base_field'],
@@ -225,23 +258,25 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
                 // 里程数转int处理
                 $nodes = dts_calculate_nodes($rule, $base_date, (int)$latest_event['mileage_now']);
             }
-        }
-        
-        // 情况B：[极速录入兼容] 无规则，但事件里直接填了"新过期日"
-        // 此时直接把这个过期日当做 deadline，不计算窗口期
-        if (empty($nodes['deadline_date']) && !empty($latest_event['expiry_date_new'])) {
-            $nodes['deadline_date'] = $latest_event['expiry_date_new'];
-        }
 
-        // [v2.1] Lock-in轨：计算锁定截止日期
-        $locked_until = null;
-        if (!empty($latest_event['lock_days']) && $latest_event['lock_days'] > 0) {
-            try {
-                $event_dt = new DateTime($latest_event['event_date']);
-                $event_dt->modify("+{$latest_event['lock_days']} days");
-                $locked_until = $event_dt->format('Y-m-d');
-            } catch (Exception $e) {
-                error_log("DTS v2.1: Error calculating locked_until_date: " . $e->getMessage());
+            // [v2.1] Lock-in轨：如果规则有 lock_days，计算锁定截止日期
+            if (!empty($latest_event['lock_days']) && $latest_event['lock_days'] > 0) {
+                try {
+                    $event_dt = new DateTime($latest_event['event_date']);
+                    $event_dt->modify("+{$latest_event['lock_days']} days");
+                    $locked_until = $event_dt->format('Y-m-d');
+                } catch (Exception $e) {
+                    error_log("DTS v2.1.3: Error calculating locked_until_date: " . $e->getMessage());
+                }
+            }
+
+        } else {
+            // 【优先级 3】模式 A：无规则且无自定义字段
+            // 兼容极速录入：如果事件里直接填了"新过期日"，用它作为 deadline
+            error_log("DTS v2.1.3: No rule and no custom fields for object #{$object_id}, using fallback logic");
+
+            if (!empty($latest_event['expiry_date_new'])) {
+                $nodes['deadline_date'] = $latest_event['expiry_date_new'];
             }
         }
 
@@ -555,8 +590,8 @@ function dts_save_object(PDO $pdo, int $subject_id, string $object_name, array $
 }
 
 /**
- * [v2.1] 统一事件保存入口
- * 创建或更新事件，支持默认规则自动匹配
+ * [v2.1.3] 统一事件保存入口
+ * 创建或更新事件，支持默认规则自动匹配和自定义日期
  *
  * @param PDO $pdo 数据库连接
  * @param int $object_id 对象ID
@@ -564,27 +599,42 @@ function dts_save_object(PDO $pdo, int $subject_id, string $object_name, array $
  *   必需: 'subject_id', 'event_type', 'event_date'
  *   可选: 'rule_id', 'expiry_date_new', 'mileage_now', 'note', 'event_id'(更新模式)
  *   可选: 'cat_main', 'cat_sub' (用于自动匹配默认规则)
+ *   [v2.1.3] 新增: 'custom_lock_date', 'custom_window_start', 'custom_window_end', 'custom_follow_up_date'
+ *   [v2.1.3] 新增: 'rule_mode' (auto/select/custom)
  * @return int|false 返回事件ID，失败返回 false
  */
 function dts_save_event(PDO $pdo, int $object_id, array $params) {
     try {
         $event_id = $params['event_id'] ?? null;
         $is_update = !empty($event_id);
+        $rule_mode = $params['rule_mode'] ?? 'auto'; // [v2.1.3] 规则模式
 
-        // [v2.1] 默认规则逻辑：如果未提供 rule_id，尝试自动匹配
+        // [v2.1.3] 规则处理逻辑：根据模式决定如何处理 rule_id
         $rule_id = $params['rule_id'] ?? null;
 
-        if (empty($rule_id) && !empty($params['cat_main'])) {
-            $default_rule = dts_get_default_rule(
-                $pdo,
-                $params['cat_main'],
-                $params['cat_sub'] ?? null
-            );
+        if ($rule_mode === 'auto') {
+            // 模式 A：自动匹配，忽略用户提交的 rule_id
+            $rule_id = null;
+            if (!empty($params['cat_main'])) {
+                $default_rule = dts_get_default_rule(
+                    $pdo,
+                    $params['cat_main'],
+                    $params['cat_sub'] ?? null
+                );
 
-            if ($default_rule) {
-                $rule_id = $default_rule['id'];
-                error_log("DTS v2.1: Auto-matched default rule #{$rule_id} for {$params['cat_main']}/{$params['cat_sub']}");
+                if ($default_rule) {
+                    $rule_id = $default_rule['id'];
+                    error_log("DTS v2.1.3: [Mode A] Auto-matched default rule #{$rule_id} for {$params['cat_main']}/{$params['cat_sub']}");
+                }
             }
+        } elseif ($rule_mode === 'select') {
+            // 模式 B：使用指定的 rule_id（已由前端传入）
+            if (!empty($rule_id)) {
+                error_log("DTS v2.1.3: [Mode B] Using specified rule #{$rule_id}");
+            }
+        } elseif ($rule_mode === 'custom') {
+            // 模式 C：自定义模式，rule_id 可能为空，以 custom_* 字段为准
+            error_log("DTS v2.1.3: [Mode C] Using custom dates, rule_id=" . ($rule_id ?: 'null'));
         }
 
         // 准备数据
@@ -596,7 +646,12 @@ function dts_save_event(PDO $pdo, int $object_id, array $params) {
             'event_date' => $params['event_date'],
             'expiry_date_new' => $params['expiry_date_new'] ?? null,
             'mileage_now' => $params['mileage_now'] ?? null,
-            'note' => $params['note'] ?? null
+            'note' => $params['note'] ?? null,
+            // [v2.1.3] 自定义日期字段
+            'custom_lock_date' => $params['custom_lock_date'] ?? null,
+            'custom_window_start' => $params['custom_window_start'] ?? null,
+            'custom_window_end' => $params['custom_window_end'] ?? null,
+            'custom_follow_up_date' => $params['custom_follow_up_date'] ?? null
         ];
 
         if ($is_update) {
@@ -611,6 +666,10 @@ function dts_save_event(PDO $pdo, int $object_id, array $params) {
                     expiry_date_new = :expiry_date_new,
                     mileage_now = :mileage_now,
                     note = :note,
+                    custom_lock_date = :custom_lock_date,
+                    custom_window_start = :custom_window_start,
+                    custom_window_end = :custom_window_end,
+                    custom_follow_up_date = :custom_follow_up_date,
                     updated_at = NOW()
                 WHERE id = :event_id
             ");
@@ -624,10 +683,14 @@ function dts_save_event(PDO $pdo, int $object_id, array $params) {
             $stmt = $pdo->prepare("
                 INSERT INTO cp_dts_event
                 (object_id, subject_id, rule_id, event_type, event_date,
-                 expiry_date_new, mileage_now, note, status, created_at, updated_at)
+                 expiry_date_new, mileage_now, note,
+                 custom_lock_date, custom_window_start, custom_window_end, custom_follow_up_date,
+                 status, created_at, updated_at)
                 VALUES
                 (:object_id, :subject_id, :rule_id, :event_type, :event_date,
-                 :expiry_date_new, :mileage_now, :note, 'completed', NOW(), NOW())
+                 :expiry_date_new, :mileage_now, :note,
+                 :custom_lock_date, :custom_window_start, :custom_window_end, :custom_follow_up_date,
+                 'completed', NOW(), NOW())
             ");
 
             $stmt->execute($data);
