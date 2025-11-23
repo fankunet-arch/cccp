@@ -137,6 +137,8 @@ function dts_calculate_nodes(array $rule, string $base_date, ?int $current_milea
         }
 
         $nodes['cycle_next_date'] = $next_dt->format('Y-m-d');
+        // [v2.1.3修复] 周期类的deadline就是下次周期日
+        $nodes['deadline_date'] = $next_dt->format('Y-m-d');
 
         // 如果有里程间隔，计算建议里程
         if ($rule['mileage_interval'] !== null && $current_mileage !== null) {
@@ -158,6 +160,8 @@ function dts_calculate_nodes(array $rule, string $base_date, ?int $current_milea
         }
 
         $nodes['follow_up_date'] = $follow_dt->format('Y-m-d');
+        // [v2.1.3修复] 递交类的deadline就是跟进日
+        $nodes['deadline_date'] = $follow_dt->format('Y-m-d');
     }
 
     return $nodes;
@@ -267,18 +271,6 @@ function dts_update_object_state(PDO $pdo, int $object_id): bool {
                     $locked_until = $event_dt->format('Y-m-d');
                 } catch (Exception $e) {
                     error_log("DTS v2.1.3: Error calculating locked_until_date: " . $e->getMessage());
-                }
-            }
-
-            // [v2.1.3] Deadline推断逻辑：如果规则没有生成deadline，尝试从其他节点推断
-            if (empty($nodes['deadline_date'])) {
-                // 优先级：window_end > cycle_next > follow_up
-                if (!empty($nodes['window_end_date'])) {
-                    $nodes['deadline_date'] = $nodes['window_end_date'];
-                } elseif (!empty($nodes['cycle_next_date'])) {
-                    $nodes['deadline_date'] = $nodes['cycle_next_date'];
-                } elseif (!empty($nodes['follow_up_date'])) {
-                    $nodes['deadline_date'] = $nodes['follow_up_date'];
                 }
             }
 
