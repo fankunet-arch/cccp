@@ -97,7 +97,7 @@ $rules = dts_get_rules_for_object($pdo, $object['object_type_main'] ?? '', $obje
 </section>
 
 <section class="content">
-    <form action="<?php echo CP_BASE_URL; ?>dts_ev_save" method="post" class="form-horizontal">
+    <form action="<?php echo CP_BASE_URL; ?>dts_ev_save" method="post" class="form-horizontal" onsubmit="return handleFormSubmit(this);">
         <input type="hidden" name="event_id" value="<?php echo $event['id'] ?? ''; ?>">
 
         <div class="row">
@@ -205,3 +205,24 @@ $rules = dts_get_rules_for_object($pdo, $object['object_type_main'] ?? '', $obje
         </div>
     </form>
 </section>
+
+<script>
+// [Audit Fix] Prevent Double Submission
+function handleFormSubmit(form) {
+    var btn = form.querySelector('button[type="submit"]');
+    if (btn.disabled) {
+        return false;
+    }
+    btn.disabled = true;
+    var originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:8px;"></i> 处理中...';
+
+    // Safety timeout: re-enable after 10 seconds in case of network error/no response
+    setTimeout(function() {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }, 10000);
+
+    return true;
+}
+</script>
