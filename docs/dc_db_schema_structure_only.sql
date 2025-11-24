@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- 主机： mhdlmskp2kpxguj.mysql.db
--- 生成日期： 2025-11-23 23:34:55
+-- 生成日期： 2025-11-24 01:46:45
 -- 服务器版本： 8.4.6-6
 -- PHP 版本： 8.1.33
 
@@ -665,6 +665,7 @@ ALTER TABLE `cp_dts_entry`
 --
 ALTER TABLE `cp_dts_event`
   ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uk_event_duplicate` (`object_id`,`event_type`,`event_date`,`is_deleted`),
   ADD KEY `idx_object_id` (`object_id`),
   ADD KEY `idx_subject_id` (`subject_id`),
   ADD KEY `idx_rule_id` (`rule_id`),
