@@ -618,8 +618,10 @@ function dts_save_object(PDO $pdo, int $subject_id, string $object_name, array $
  * @return int|false 返回事件ID，失败返回 false
  */
 function dts_save_event(PDO $pdo, int $object_id, array $params) {
+    $local_transaction = false;
     if (!$pdo->inTransaction()) {
         $pdo->beginTransaction();
+        $local_transaction = true;
     }
 
     try {
@@ -731,11 +733,13 @@ function dts_save_event(PDO $pdo, int $object_id, array $params) {
             throw new Exception("Object state update failed for object #{$object_id}");
         }
 
-        $pdo->commit();
+        if ($local_transaction) {
+            $pdo->commit();
+        }
         return $final_event_id;
 
     } catch (Exception $e) {
-        if ($pdo->inTransaction()) {
+        if ($local_transaction && $pdo->inTransaction()) {
             $pdo->rollBack();
         }
         error_log("DTS: Error saving event: " . $e->getMessage());
