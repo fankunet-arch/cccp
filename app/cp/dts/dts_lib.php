@@ -108,19 +108,29 @@ function dts_calculate_nodes(array $rule, string $base_date, ?int $current_milea
     // 2. 周期类（last_done_based）：基于上次完成日计算下一次（截止日）
     elseif ($rule['rule_type'] === 'last_done_based') {
         $next_dt = clone $base_dt;
+        $interval_found = false;
 
         // 优先使用月数间隔
         if (!empty($rule['cycle_interval_months']) && $rule['cycle_interval_months'] > 0) {
             $next_dt->modify("+{$rule['cycle_interval_months']} months");
+            $interval_found = true;
         }
         // 否则使用天数间隔
         elseif (!empty($rule['cycle_interval_days']) && $rule['cycle_interval_days'] > 0) {
             $next_dt->modify("+{$rule['cycle_interval_days']} days");
+            $interval_found = true;
         }
 
-        $nodes['cycle_next_date'] = $next_dt->format('Y-m-d');
-        $nodes['deadline_date'] = $nodes['cycle_next_date']; // 映射到通用截止日
-        $window_base_dt = clone $next_dt; // 窗口基于下一次截止日计算
+        if (!$interval_found) {
+            // [Bug Fix] 如果没有有效间隔，不能计算下一周期，更不能把“今天”当做“截止日”
+            // 返回空节点或记录错误
+            error_log("DTS Calculation Error: Cyclic rule ID {$rule['id']} has no valid interval settings.");
+            // 不设置 deadline_date，避免误报过期
+        } else {
+            $nodes['cycle_next_date'] = $next_dt->format('Y-m-d');
+            $nodes['deadline_date'] = $nodes['cycle_next_date']; // 映射到通用截止日
+            $window_base_dt = clone $next_dt; // 窗口基于下一次截止日计算
+        }
 
         // 如果有里程间隔，计算建议里程
         if (!empty($rule['mileage_interval']) && $current_mileage !== null) {
