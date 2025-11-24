@@ -2,6 +2,10 @@
 /**
  * DTS 总览页面
  * 显示未来一定时间范围内的所有重要节点
+ *
+ * [Audit Fix]
+ * 1. 修复逻辑严重错误：窗口开始日过期不应显示为"危险/过期"，而应视为"窗口已开启"并切换为截止日视图。
+ * 2. 合并节点：每个对象仅显示一个最优先的节点，避免列表冗余。
  */
 
 declare(strict_types=1);
@@ -44,8 +48,8 @@ $stmt->execute($params);
 $objects = $stmt->fetchAll();
 
 // 计算今天和未来 N 天的日期
-$today = new DateTime();
-$future_date = (clone $today)->modify("+{$filter_days} days");
+$today_dt = new DateTime('today');
+$future_dt = (clone $today_dt)->modify("+{$filter_days} days");
 
 // 收集所有需要提醒的节点
 $nodes = [];
@@ -53,81 +57,121 @@ $nodes = [];
 foreach ($objects as $obj) {
     // [v2.1] 获取锁定状态
     $locked_until = $obj['locked_until_date'] ?? null;
+    $is_locked = false;
+    if (!empty($locked_until)) {
+        try {
+            $locked_dt = new DateTime($locked_until);
+            if ($locked_dt >= $today_dt) {
+                $is_locked = true;
+            }
+        } catch (Exception $e) {}
+    }
 
-    // 截止日
-    if ($obj['next_deadline_date']) {
-        $node_date = new DateTime($obj['next_deadline_date']);
-        if ($node_date <= $future_date) {
-            $nodes[] = [
-                'date' => $obj['next_deadline_date'],
-                'type' => 'deadline',
-                'type_name' => '截止日',
-                'urgency' => dts_get_urgency_class($obj['next_deadline_date']),
-                'urgency_text' => dts_get_urgency_text($obj['next_deadline_date']),
-                'object_id' => $obj['id'],
-                'object_name' => $obj['object_name'],
-                'subject_name' => $obj['subject_name'],
-                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub'],
-                'locked_until' => $locked_until
-            ];
+    // --- 核心逻辑修复：合并节点决策 ---
+
+    $node_data = null;
+
+    // 提取关键日期
+    $date_window_start = $obj['next_window_start_date'] ?? null;
+    $date_deadline = $obj['next_deadline_date'] ?? null;
+    $date_cycle = $obj['next_cycle_date'] ?? null;
+    $date_follow_up = $obj['next_follow_up_date'] ?? null;
+
+    // 决策树：确定显示哪个日期
+    // 优先级 1: 窗口期逻辑 (如果有 Window Start)
+    if (!empty($date_window_start)) {
+        try {
+            $ws_dt = new DateTime($date_window_start);
+
+            if ($ws_dt > $today_dt) {
+                // 情况 A: 窗口尚未开启 -> 显示"即将开始"
+                // 仅当在筛选范围内时显示
+                if ($ws_dt <= $future_dt) {
+                    $days_wait = $today_dt->diff($ws_dt)->days;
+                    $node_data = [
+                        'date' => $date_window_start,
+                        'type' => 'window_start',
+                        'type_name' => '即将开始',
+                        'urgency' => 'info', // 蓝色，正常提示
+                        'urgency_text' => "还有 {$days_wait} 天开始",
+                        'remark' => $date_deadline ? "截止日: " . $date_deadline : ''
+                    ];
+                }
+            } else {
+                // 情况 B: 窗口已开启 (Today >= Window Start) -> 切换为显示"截止日"
+                // 这修复了"窗口开始日过期显示为红色错误"的逻辑漏洞
+                if (!empty($date_deadline)) {
+                    $dl_dt = new DateTime($date_deadline);
+                    if ($dl_dt <= $future_dt || $dl_dt < $today_dt) { // 包括已过期的截止日
+                        $node_data = [
+                            'date' => $date_deadline,
+                            'type' => 'deadline', // 归类为截止日
+                            'type_name' => '窗口期进行中',
+                            'urgency' => dts_get_urgency_class($date_deadline),
+                            'urgency_text' => dts_get_urgency_text($date_deadline),
+                            'remark' => "窗口已于 {$date_window_start} 开启"
+                        ];
+                    }
+                } else {
+                    // 有开始日但没有截止日（罕见，但也可能是永久窗口）
+                    $node_data = [
+                        'date' => $date_window_start,
+                        'type' => 'window_open',
+                        'type_name' => '已开始',
+                        'urgency' => 'success',
+                        'urgency_text' => '进行中',
+                        'remark' => "开启于 {$date_window_start}"
+                    ];
+                }
+            }
+        } catch (Exception $e) {}
+    }
+    // 优先级 2: 无窗口期，只有截止日/周期日/跟进日
+    else {
+        // 选择最近的一个日期作为主要显示
+        // 这里简化逻辑：如果有 deadline 优先显示 deadline
+        $target_date = $date_deadline ?: ($date_cycle ?: $date_follow_up);
+        $target_type = $date_deadline ? 'deadline' : ($date_cycle ? 'cycle' : 'follow_up');
+        $type_map = ['deadline' => '截止日', 'cycle' => '周期日', 'follow_up' => '跟进日'];
+
+        if ($target_date) {
+            try {
+                $t_dt = new DateTime($target_date);
+                // 显示条件：(在未来N天内) 或 (已过期)
+                if ($t_dt <= $future_dt) {
+                    $node_data = [
+                        'date' => $target_date,
+                        'type' => $target_type,
+                        'type_name' => $type_map[$target_type] ?? '节点',
+                        'urgency' => dts_get_urgency_class($target_date),
+                        'urgency_text' => dts_get_urgency_text($target_date),
+                        'remark' => ''
+                    ];
+                }
+            } catch (Exception $e) {}
         }
     }
 
-    // 周期日
-    if ($obj['next_cycle_date']) {
-        $node_date = new DateTime($obj['next_cycle_date']);
-        if ($node_date <= $future_date) {
-            $nodes[] = [
-                'date' => $obj['next_cycle_date'],
-                'type' => 'cycle',
-                'type_name' => '周期日',
-                'urgency' => dts_get_urgency_class($obj['next_cycle_date']),
-                'urgency_text' => dts_get_urgency_text($obj['next_cycle_date']),
-                'object_id' => $obj['id'],
-                'object_name' => $obj['object_name'],
-                'subject_name' => $obj['subject_name'],
-                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub'],
-                'locked_until' => $locked_until
-            ];
+    // 如果生成了节点数据，添加到列表
+    if ($node_data) {
+        // 应用类型筛选
+        if ($filter_type) {
+             if ($filter_type === 'window_start') {
+                 // 如果筛选"即将开始"，只显示 window_start 类型
+                 if ($node_data['type'] !== 'window_start') continue;
+             } else {
+                 if ($node_data['type'] !== $filter_type) continue;
+             }
         }
-    }
 
-    // 跟进日
-    if ($obj['next_follow_up_date']) {
-        $node_date = new DateTime($obj['next_follow_up_date']);
-        if ($node_date <= $future_date) {
-            $nodes[] = [
-                'date' => $obj['next_follow_up_date'],
-                'type' => 'follow_up',
-                'type_name' => '跟进日',
-                'urgency' => dts_get_urgency_class($obj['next_follow_up_date']),
-                'urgency_text' => dts_get_urgency_text($obj['next_follow_up_date']),
-                'object_id' => $obj['id'],
-                'object_name' => $obj['object_name'],
-                'subject_name' => $obj['subject_name'],
-                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub'],
-                'locked_until' => $locked_until
-            ];
-        }
-    }
-
-    // 窗口开始日
-    if ($obj['next_window_start_date']) {
-        $node_date = new DateTime($obj['next_window_start_date']);
-        if ($node_date <= $future_date) {
-            $nodes[] = [
-                'date' => $obj['next_window_start_date'],
-                'type' => 'window_start',
-                'type_name' => '可办理开始日',
-                'urgency' => 'info',
-                'urgency_text' => dts_get_urgency_text($obj['next_window_start_date']),
-                'object_id' => $obj['id'],
-                'object_name' => $obj['object_name'],
-                'subject_name' => $obj['subject_name'],
-                'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub'],
-                'locked_until' => $locked_until
-            ];
-        }
+        $nodes[] = array_merge($node_data, [
+            'object_id' => $obj['id'],
+            'object_name' => $obj['object_name'],
+            'subject_name' => $obj['subject_name'],
+            'category' => $obj['object_type_main'] . ' / ' . $obj['object_type_sub'],
+            'locked_until' => $locked_until,
+            'is_locked' => $is_locked
+        ]);
     }
 }
 
@@ -135,13 +179,6 @@ foreach ($objects as $obj) {
 usort($nodes, function($a, $b) {
     return strcmp($a['date'], $b['date']);
 });
-
-// 按类型筛选
-if ($filter_type) {
-    $nodes = array_filter($nodes, function($node) use ($filter_type) {
-        return $node['type'] === $filter_type;
-    });
-}
 
 ?>
 
@@ -219,6 +256,7 @@ if ($filter_type) {
                                 <option value="deadline" <?php echo $filter_type === 'deadline' ? 'selected' : ''; ?>>截止日</option>
                                 <option value="cycle" <?php echo $filter_type === 'cycle' ? 'selected' : ''; ?>>周期日</option>
                                 <option value="follow_up" <?php echo $filter_type === 'follow_up' ? 'selected' : ''; ?>>跟进日</option>
+                                <option value="window_start" <?php echo $filter_type === 'window_start' ? 'selected' : ''; ?>>即将开始</option>
                             </select>
                         </div>
 
@@ -251,7 +289,7 @@ if ($filter_type) {
                                 <thead>
                                     <tr>
                                         <th width="120">日期</th>
-                                        <th width="100">类型</th>
+                                        <th width="120">类型</th>
                                         <th width="120">紧急程度</th>
                                         <th width="120">主体</th>
                                         <th>对象</th>
@@ -261,20 +299,22 @@ if ($filter_type) {
                                 </thead>
                                 <tbody>
                                     <?php foreach ($nodes as $node):
-                                        // [v2.1] 检查是否锁定中
-                                        $is_locked = false;
-                                        if (!empty($node['locked_until'])) {
-                                            $today = new DateTime('today');
-                                            $locked_date = new DateTime($node['locked_until']);
-                                            $is_locked = $locked_date >= $today;
+                                        // 动态 badge 样式映射
+                                        $badge_class = 'default';
+                                        switch($node['type']) {
+                                            case 'window_start': $badge_class = 'info'; break;
+                                            case 'deadline': $badge_class = 'danger'; break;
+                                            case 'window_open': $badge_class = 'success'; break;
+                                            case 'cycle': $badge_class = 'warning'; break;
+                                            case 'follow_up': $badge_class = 'primary'; break;
                                         }
                                     ?>
-                                        <tr class="urgency-row urgency-<?php echo $node['urgency']; ?> <?php echo $is_locked ? 'dts-locked' : ''; ?>">
+                                        <tr class="urgency-row urgency-<?php echo $node['urgency']; ?> <?php echo $node['is_locked'] ? 'dts-locked' : ''; ?>">
                                             <td>
                                                 <strong><?php echo dts_format_date($node['date'], 'Y-m-d'); ?></strong>
                                             </td>
                                             <td>
-                                                <span class="badge badge-<?php echo $node['type']; ?>">
+                                                <span class="badge badge-<?php echo $badge_class; ?>">
                                                     <?php echo $node['type_name']; ?>
                                                 </span>
                                             </td>
@@ -286,10 +326,15 @@ if ($filter_type) {
                                             <td><?php echo htmlspecialchars($node['subject_name']); ?></td>
                                             <td>
                                                 <strong><?php echo htmlspecialchars($node['object_name']); ?></strong>
-                                                <?php if ($is_locked): ?>
+                                                <?php if ($node['is_locked']): ?>
                                                     <span class="label label-default" style="margin-left:5px;" title="锁定至 <?php echo $node['locked_until']; ?>">
                                                         <i class="fas fa-lock"></i> 锁定中
                                                     </span>
+                                                <?php endif; ?>
+                                                <?php if (!empty($node['remark'])): ?>
+                                                    <div class="text-muted small" style="margin-top:2px;">
+                                                        <?php echo htmlspecialchars($node['remark']); ?>
+                                                    </div>
                                                 <?php endif; ?>
                                             </td>
                                             <td><?php echo htmlspecialchars($node['category']); ?></td>
