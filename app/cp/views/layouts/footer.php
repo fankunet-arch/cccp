@@ -11,7 +11,7 @@
             <span>Copyright &copy; 2024-<?php echo date('Y'); ?></span>
             <a href="#"
                style="color:inherit;text-decoration:none;border-bottom:1px dashed currentColor;">
-               Sushisom
+               ABCabc
             </a>.
             <span>All rights reserved.</span>
         </div>

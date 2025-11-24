@@ -84,7 +84,7 @@ if ($is_som_active) {
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Sushisom CP | 控制面板</title>
+    <title>ABCabc CP | 控制面板</title>
     <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
 
     <link rel="stylesheet" href="/cp/style.css">
