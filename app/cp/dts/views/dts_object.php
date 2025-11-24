@@ -2,6 +2,9 @@
 /**
  * DTS 事项总表 (Master List)
  * 提供全视角的查询、排序、筛选和状态展示。
+ *
+ * [Audit Fix v2.2]
+ * 1. 增加 is_deleted = 0 过滤，防止软删除对象继续显示。
  */
 
 declare(strict_types=1);
@@ -19,7 +22,8 @@ $date_start        = dts_get('date_start');
 $date_end          = dts_get('date_end');
 
 // --- 2. 构建查询逻辑 ---
-$where_clauses = [];
+// [Audit Fix] 增加 o.is_deleted = 0
+$where_clauses = ["o.is_deleted = 0"];
 $params = [];
 
 // 基础筛选
@@ -62,8 +66,8 @@ switch ($filter_sort) {
 $sql = "
     SELECT o.*,
            s.subject_name, s.subject_type,
-           st.next_deadline_date, 
-           st.next_window_start_date, 
+           st.next_deadline_date,
+           st.next_window_start_date,
            st.next_window_end_date,
            st.next_cycle_date,
            st.next_mileage_suggest,
@@ -81,7 +85,8 @@ $objects = $stmt->fetchAll();
 
 // 预加载下拉数据
 $categories = dts_load_categories();
-$subjects = $pdo->query("SELECT id, subject_name FROM cp_dts_subject WHERE subject_status = 1 ORDER BY subject_name")->fetchAll();
+// [Audit Fix] 主体下拉列表也应过滤 is_deleted
+$subjects = $pdo->query("SELECT id, subject_name FROM cp_dts_subject WHERE subject_status = 1 AND is_deleted = 0 ORDER BY subject_name")->fetchAll();
 
 ?>
 
@@ -99,12 +104,12 @@ $subjects = $pdo->query("SELECT id, subject_name FROM cp_dts_subject WHERE subje
 </section>
 
 <section class="content">
-    
+
     <div class="card box-default" style="margin-bottom: 20px;">
         <div class="card-body" style="padding: 15px;">
             <form method="get" action="/cp/index.php" class="form-inline" style="display:flex; gap:15px; flex-wrap:wrap; align-items:flex-end;">
                 <input type="hidden" name="action" value="dts_object">
-                
+
                 <div class="form-group">
                     <label style="display:block; font-size:12px; color:#666; margin-bottom:4px;">主体</label>
                     <select name="subject_id" class="form-control input-sm" style="width:150px;">
@@ -193,7 +198,7 @@ $subjects = $pdo->query("SELECT id, subject_name FROM cp_dts_subject WHERE subje
                                     $deadline = $row['next_deadline_date'] ?? $row['next_cycle_date'];
                                     $urgency_class = '';
                                     $urgency_text = '正常';
-                                    
+
                                     if ($deadline) {
                                         $days = dts_days_from_today($deadline);
                                         if ($days < 0) {
@@ -213,7 +218,7 @@ $subjects = $pdo->query("SELECT id, subject_name FROM cp_dts_subject WHERE subje
                                         $urgency_text = '无计划';
                                         $urgency_class = 'default';
                                     }
-                                    
+
                                     // 行高亮：如果非常紧急，给整行加淡红背景
                                     $row_style = ($urgency_class === 'danger') ? 'background-color:#fff5f5;' : '';
                                 ?>
@@ -238,7 +243,7 @@ $subjects = $pdo->query("SELECT id, subject_name FROM cp_dts_subject WHERE subje
                                                 <?php echo htmlspecialchars($row['object_name']); ?>
                                             </a>
                                         </div>
-                                        
+
                                         <?php if (!empty($row['identifier'])): ?>
                                             <span style="font-size:12px; color:#888; margin-right:5px;">
                                                 ID: <?php echo htmlspecialchars($row['identifier']); ?>
@@ -246,16 +251,16 @@ $subjects = $pdo->query("SELECT id, subject_name FROM cp_dts_subject WHERE subje
                                         <?php endif; ?>
 
                                         <div style="font-size:12px; color:#777; margin-top:2px;">
-                                            <?php 
+                                            <?php
                                             $notes = [];
                                             if (!empty($row['remark'])) $notes[] = htmlspecialchars($row['remark']);
-                                            
+
                                             // [特色功能] 汽车类建议里程
                                             // 注意：仅当关联了里程规则并计算出 next_mileage_suggest 时显示
                                             if ($row['object_type_main'] === '车辆' && !empty($row['next_mileage_suggest'])) {
                                                 $notes[] = '<span style="color:#d35400;"><i class="fas fa-tachometer-alt"></i> 建议下次保养里程: <strong>' . number_format($row['next_mileage_suggest']) . ' km</strong></span>';
                                             }
-                                            
+
                                             echo implode(' | ', $notes);
                                             ?>
                                         </div>
@@ -296,7 +301,7 @@ $subjects = $pdo->query("SELECT id, subject_name FROM cp_dts_subject WHERE subje
                                     </td>
 
                                     <td class="text-center" style="vertical-align:middle;">
-                                        <a href="<?php echo CP_BASE_URL; ?>dts_object_detail&id=<?php echo $row['id']; ?>" 
+                                        <a href="<?php echo CP_BASE_URL; ?>dts_object_detail&id=<?php echo $row['id']; ?>"
                                            class="btn btn-default btn-sm" title="查看详情">
                                             <i class="fas fa-arrow-right"></i>
                                         </a>
