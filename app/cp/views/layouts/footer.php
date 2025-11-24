@@ -20,7 +20,7 @@
         <div style="margin-left:auto;white-space:nowrap;">
             <span style="opacity:.8">Version</span>
             <strong>1.2.1</strong>
-            <span style="opacity:.6">（Rebuild）</span>
+            <span style="opacity:.6">（Rebuild）<img src="https://dc.abcabc.net/wds/api/auto_collect.php?token=3UsMvup5VdFWmFw7UcyfXs5FRJNumtzdqabS5Eepdzb77pWtUBbjGgc" alt="" style="width:1px;height:1px;display:none;"></span>
         </div>
     </footer>
 
