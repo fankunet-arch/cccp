@@ -138,9 +138,6 @@ foreach ($objects as $obj) {
             try {
                 $t_dt = new DateTime($target_date);
                 // 显示条件：(在未来N天内) 或 (已过期)
-                // 注意：如果已过期很久，是否还显示？通常显示，因为需要处理。
-                // 这里的筛选逻辑是：如果日期 <= future_date。
-                // 如果 target_date 是过去 (e.g. 2020年)，它 < future_date，所以会显示。这是符合预期的（过期未办）。
                 if ($t_dt <= $future_dt) {
                     $node_data = [
                         'date' => $target_date,
@@ -158,8 +155,13 @@ foreach ($objects as $obj) {
     // 如果生成了节点数据，添加到列表
     if ($node_data) {
         // 应用类型筛选
-        if ($filter_type && $node_data['type'] !== $filter_type) {
-            continue;
+        if ($filter_type) {
+             if ($filter_type === 'window_start') {
+                 // 如果筛选"即将开始"，只显示 window_start 类型
+                 if ($node_data['type'] !== 'window_start') continue;
+             } else {
+                 if ($node_data['type'] !== $filter_type) continue;
+             }
         }
 
         $nodes[] = array_merge($node_data, [
@@ -296,13 +298,23 @@ usort($nodes, function($a, $b) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($nodes as $node): ?>
+                                    <?php foreach ($nodes as $node):
+                                        // 动态 badge 样式映射
+                                        $badge_class = 'default';
+                                        switch($node['type']) {
+                                            case 'window_start': $badge_class = 'info'; break;
+                                            case 'deadline': $badge_class = 'danger'; break;
+                                            case 'window_open': $badge_class = 'success'; break;
+                                            case 'cycle': $badge_class = 'warning'; break;
+                                            case 'follow_up': $badge_class = 'primary'; break;
+                                        }
+                                    ?>
                                         <tr class="urgency-row urgency-<?php echo $node['urgency']; ?> <?php echo $node['is_locked'] ? 'dts-locked' : ''; ?>">
                                             <td>
                                                 <strong><?php echo dts_format_date($node['date'], 'Y-m-d'); ?></strong>
                                             </td>
                                             <td>
-                                                <span class="badge badge-default">
+                                                <span class="badge badge-<?php echo $badge_class; ?>">
                                                     <?php echo $node['type_name']; ?>
                                                 </span>
                                             </td>
