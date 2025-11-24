@@ -70,6 +70,18 @@ try {
             'rule_mode' => dts_post('rule_mode', 'auto') // 规则模式
         ];
 
+        // [Audit Fix] 重复提交检查 (ev_add 模式)
+        // 检查该对象是否已存在相同类型、日期的事件
+        $dup_stmt = $pdo->prepare("
+            SELECT id FROM cp_dts_event
+            WHERE object_id = ? AND event_type = ? AND event_date = ? AND is_deleted = 0
+            LIMIT 1
+        ");
+        $dup_stmt->execute([$object_id, $event_params['event_type'], $event_params['event_date']]);
+        if ($dup_stmt->fetch()) {
+            throw new Exception("重复提交：该对象在 {$event_params['event_date']} 已有 '{$event_params['event_type']}' 事件。");
+        }
+
         // 调用统一事件保存入口
         $saved_event_id = dts_save_event($pdo, (int)$object_id, $event_params);
 
@@ -149,6 +161,20 @@ try {
         'custom_follow_up_date' => dts_post('custom_follow_up_date') ?: null,
         'rule_mode' => dts_post('rule_mode', 'auto') // 规则模式
     ];
+
+    // [Audit Fix] 重复提交检查：如果是插入模式（没有 event_id），检查是否已存在相同对象、类型、日期的事件
+    if (empty($event_params['event_id'])) {
+        $dup_stmt = $pdo->prepare("
+            SELECT id FROM cp_dts_event
+            WHERE object_id = ? AND event_type = ? AND event_date = ? AND is_deleted = 0
+            LIMIT 1
+        ");
+        $dup_stmt->execute([(int)$object_id, $event_params['event_type'], $event_params['event_date']]);
+        if ($dup_stmt->fetch()) {
+            // 已存在重复事件，静默成功或抛出异常。这里选择抛出异常以提示用户
+            throw new Exception("重复提交：该对象在 {$event_params['event_date']} 已有 '{$event_params['event_type']}' 事件。");
+        }
+    }
 
     $saved_event_id = dts_save_event($pdo, (int)$object_id, $event_params);
 
