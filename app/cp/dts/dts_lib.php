@@ -618,10 +618,24 @@ function dts_save_object(PDO $pdo, int $subject_id, string $object_name, array $
  * @return int|false 返回事件ID，失败返回 false
  */
 function dts_save_event(PDO $pdo, int $object_id, array $params) {
+    if (!$pdo->inTransaction()) {
+        $pdo->beginTransaction();
+    }
+
     try {
         $event_id = $params['event_id'] ?? null;
         $is_update = !empty($event_id);
         $rule_mode = $params['rule_mode'] ?? 'auto'; // [v2.1.3] 规则模式
+
+        // [必须加入] 幂等性检查 (Duplicate Check)
+        // 仅在新增或关键字段变更时检查（此处简化为非更新操作即检查）
+        if (!$is_update) {
+            $check_stmt = $pdo->prepare("SELECT id FROM cp_dts_event WHERE object_id=? AND event_type=? AND event_date=? AND is_deleted=0 LIMIT 1");
+            $check_stmt->execute([$object_id, $params['event_type'], $params['event_date']]);
+            if ($check_stmt->fetch()) {
+                 throw new Exception('该日期已存在相同的事件记录，请勿重复添加。');
+            }
+        }
 
         // [v2.1.3] 规则处理逻辑：根据模式决定如何处理 rule_id
         $rule_id = $params['rule_id'] ?? null;
@@ -712,11 +726,18 @@ function dts_save_event(PDO $pdo, int $object_id, array $params) {
         }
 
         // 触发状态更新
-        dts_update_object_state($pdo, $object_id);
+        // [Safety Check] Must ensure state update succeeds, otherwise rollback
+        if (!dts_update_object_state($pdo, $object_id)) {
+            throw new Exception("Object state update failed for object #{$object_id}");
+        }
 
+        $pdo->commit();
         return $final_event_id;
 
     } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         error_log("DTS: Error saving event: " . $e->getMessage());
         return false;
     }
