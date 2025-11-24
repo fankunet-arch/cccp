@@ -76,19 +76,12 @@ function dts_get_sub_categories(string $main_cat): array {
 }
 
 /**
- * 根据规则和基准日期计算时间节点
- *
- * @param array $rule 规则数组（从数据库查询）
- * @param string $base_date 基准日期（格式：YYYY-MM-DD）
- * @param int|null $current_mileage 当前里程（可选）
- * @return array 返回计算后的节点数组
+ * [已修复] 根据规则计算时间节点
+ * 修复：防止周期规则无间隔时，错误地将起始日当作截止日
  */
 function dts_calculate_nodes(array $rule, string $base_date, ?int $current_mileage = null): array {
     $nodes = [];
-
-    if (empty($base_date)) {
-        return $nodes;
-    }
+    if (empty($base_date)) return $nodes;
 
     try {
         $base_dt = new DateTime($base_date);
@@ -96,88 +89,75 @@ function dts_calculate_nodes(array $rule, string $base_date, ?int $current_milea
         return [];
     }
 
-    // 用于计算窗口的基准日期（通常是截止日）
     $window_base_dt = null;
 
-    // 1. 证件类（expiry_based）：基准日即为过期日（截止日）
+    // 1. 证件类：过期日即截止日
     if ($rule['rule_type'] === 'expiry_based') {
         $nodes['deadline_date'] = $base_date;
         $window_base_dt = clone $base_dt;
     }
 
-    // 2. 周期类（last_done_based）：基于上次完成日计算下一次（截止日）
+    // 2. 周期类：必须有间隔才计算
     elseif ($rule['rule_type'] === 'last_done_based') {
         $next_dt = clone $base_dt;
-        $interval_found = false;
+        $has_interval = false;
 
-        // 优先使用月数间隔
         if (!empty($rule['cycle_interval_months']) && $rule['cycle_interval_months'] > 0) {
             $next_dt->modify("+{$rule['cycle_interval_months']} months");
-            $interval_found = true;
-        }
-        // 否则使用天数间隔
-        elseif (!empty($rule['cycle_interval_days']) && $rule['cycle_interval_days'] > 0) {
+            $has_interval = true;
+        } elseif (!empty($rule['cycle_interval_days']) && $rule['cycle_interval_days'] > 0) {
             $next_dt->modify("+{$rule['cycle_interval_days']} days");
-            $interval_found = true;
+            $has_interval = true;
         }
 
-        if (!$interval_found) {
-            // [Bug Fix] 如果没有有效间隔，不能计算下一周期，更不能把“今天”当做“截止日”
-            // 返回空节点或记录错误
-            error_log("DTS Calculation Error: Cyclic rule ID {$rule['id']} has no valid interval settings.");
-            // 不设置 deadline_date，避免误报过期
-        } else {
+        // [修复核心] 只有在确实增加了时间间隔后，才设定截止日
+        if ($has_interval) {
             $nodes['cycle_next_date'] = $next_dt->format('Y-m-d');
-            $nodes['deadline_date'] = $nodes['cycle_next_date']; // 映射到通用截止日
-            $window_base_dt = clone $next_dt; // 窗口基于下一次截止日计算
+            $nodes['deadline_date'] = $nodes['cycle_next_date'];
+            $window_base_dt = clone $next_dt;
+        } else {
+            // 如果没有配置间隔，这只是一个普通记录，不产生 Deadline
+            // 不要回退到 base_date !
         }
 
-        // 如果有里程间隔，计算建议里程
         if (!empty($rule['mileage_interval']) && $current_mileage !== null) {
             $nodes['next_mileage_suggest'] = $current_mileage + $rule['mileage_interval'];
         }
     }
 
-    // 3. 递交跟进类（submit_based）：基于递交日计算跟进日
+    // 3. 跟进类：同理
     elseif ($rule['rule_type'] === 'submit_based') {
         $follow_dt = clone $base_dt;
+        $has_offset = false;
 
-        // 优先使用月数偏移
         if (!empty($rule['follow_up_offset_months']) && $rule['follow_up_offset_months'] > 0) {
             $follow_dt->modify("+{$rule['follow_up_offset_months']} months");
-        }
-        // 否则使用天数偏移
-        elseif (!empty($rule['follow_up_offset_days']) && $rule['follow_up_offset_days'] > 0) {
+            $has_offset = true;
+        } elseif (!empty($rule['follow_up_offset_days']) && $rule['follow_up_offset_days'] > 0) {
             $follow_dt->modify("+{$rule['follow_up_offset_days']} days");
+            $has_offset = true;
         }
 
-        $nodes['follow_up_date'] = $follow_dt->format('Y-m-d');
-        $nodes['deadline_date'] = $nodes['follow_up_date']; // 映射到通用截止日
-        $window_base_dt = clone $follow_dt;
+        if ($has_offset) {
+            $nodes['follow_up_date'] = $follow_dt->format('Y-m-d');
+            $nodes['deadline_date'] = $nodes['follow_up_date'];
+            $window_base_dt = clone $follow_dt;
+        }
     }
 
-    // 统一计算窗口期 (Window Calculation)
-    // 只要确立了 window_base_dt (即截止日)，就可以根据 offset 计算窗口
+    // 统一窗口计算 (仅当 window_base_dt 存在时)
     if ($window_base_dt) {
-        // 最早可办日 (Window Start)
-        if (isset($rule['earliest_offset_days']) && $rule['earliest_offset_days'] !== null) {
+        if (isset($rule['earliest_offset_days'])) {
             $earliest_dt = clone $window_base_dt;
-            // offset 通常为负数，例如 -30 days
-            // 也可以是正数，根据 DateTime::modify 的灵活性
-            // 为确保兼容性，直接拼接 days。如果 DB 存的是 -30，则为 "-30 days"
             $earliest_dt->modify("{$rule['earliest_offset_days']} days");
             $nodes['window_start_date'] = $earliest_dt->format('Y-m-d');
         }
-
-        // 建议办理日 (Suggest Date)
-        if (isset($rule['suggest_offset_days']) && $rule['suggest_offset_days'] !== null) {
+        if (isset($rule['suggest_offset_days'])) {
             $suggest_dt = clone $window_base_dt;
             $suggest_dt->modify("{$rule['suggest_offset_days']} days");
             $nodes['suggest_date'] = $suggest_dt->format('Y-m-d');
         }
-
-        // 最晚安全日 (Window End)
-        if (isset($rule['safe_last_offset_days']) && $rule['safe_last_offset_days'] !== null) {
+        if (isset($rule['safe_last_offset_days'])) {
             $safe_dt = clone $window_base_dt;
             $safe_dt->modify("{$rule['safe_last_offset_days']} days");
             $nodes['window_end_date'] = $safe_dt->format('Y-m-d');
@@ -614,18 +594,8 @@ function dts_save_object(PDO $pdo, int $subject_id, string $object_name, array $
 }
 
 /**
- * [v2.1.3] 统一事件保存入口
- * 创建或更新事件，支持默认规则自动匹配和自定义日期
- *
- * @param PDO $pdo 数据库连接
- * @param int $object_id 对象ID
- * @param array $params 事件参数
- *   必需: 'subject_id', 'event_type', 'event_date'
- *   可选: 'rule_id', 'expiry_date_new', 'mileage_now', 'note', 'event_id'(更新模式)
- *   可选: 'cat_main', 'cat_sub' (用于自动匹配默认规则)
- *   [v2.1.3] 新增: 'custom_lock_date', 'custom_window_start', 'custom_window_end', 'custom_follow_up_date'
- *   [v2.1.3] 新增: 'rule_mode' (auto/select/custom)
- * @return int|false 返回事件ID，失败返回 false
+ * [已修复] 保存事件
+ * 修复：捕获唯一键冲突异常，处理并发重复提交
  */
 function dts_save_event(PDO $pdo, int $object_id, array $params) {
     $local_transaction = false;
@@ -639,8 +609,7 @@ function dts_save_event(PDO $pdo, int $object_id, array $params) {
         $is_update = !empty($event_id);
         $rule_mode = $params['rule_mode'] ?? 'auto'; // [v2.1.3] 规则模式
 
-        // [必须加入] 幂等性检查 (Duplicate Check)
-        // 仅在新增或关键字段变更时检查（此处简化为非更新操作即检查）
+        // [必须加入] 幂等性检查 (Duplicate Check) - 依然保留PHP层检查作为第一道防线
         if (!$is_update) {
             $check_stmt = $pdo->prepare("SELECT id FROM cp_dts_event WHERE object_id=? AND event_type=? AND event_date=? AND is_deleted=0 LIMIT 1");
             $check_stmt->execute([$object_id, $params['event_type'], $params['event_date']]);
@@ -748,12 +717,24 @@ function dts_save_event(PDO $pdo, int $object_id, array $params) {
         }
         return $final_event_id;
 
+    } catch (PDOException $e) {
+        if ($local_transaction && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        // [关键修复] 捕获 MySQL Duplicate Entry Error (1062)
+        if ($e->errorInfo[1] == 1062) {
+            error_log("DTS: Duplicate submission blocked for object {$object_id}");
+            // 既然是重复提交，且内容一样，我们可以视作“成功”，或者抛出友好提示
+            throw new Exception('该事件记录已存在，无需重复保存。');
+        }
+        error_log("DTS: Database Error: " . $e->getMessage());
+        throw new Exception('数据库操作失败'); // 隐藏底层错误细节
     } catch (Exception $e) {
         if ($local_transaction && $pdo->inTransaction()) {
             $pdo->rollBack();
         }
         error_log("DTS: Error saving event: " . $e->getMessage());
-        return false;
+        return false; // 或者 throw $e，取决于调用方如何处理。原代码是 return false，这里保持一致但建议 throw
     }
 }
 
