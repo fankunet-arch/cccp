@@ -3,9 +3,10 @@
  * DTS 总览页面
  * 显示未来一定时间范围内的所有重要节点
  *
- * [Audit Fix]
+ * [Audit Fix v2.2]
  * 1. 修复逻辑严重错误：窗口开始日过期不应显示为"危险/过期"，而应视为"窗口已开启"并切换为截止日视图。
  * 2. 合并节点：每个对象仅显示一个最优先的节点，避免列表冗余。
+ * 3. [New] 强制显示已开启窗口的任务，即使截止日超出默认筛选范围。
  */
 
 declare(strict_types=1);
@@ -99,21 +100,45 @@ foreach ($objects as $obj) {
                 }
             } else {
                 // 情况 B: 窗口已开启 (Today >= Window Start) -> 切换为显示"截止日"
-                // 这修复了"窗口开始日过期显示为红色错误"的逻辑漏洞
+                // [Audit Fix] 只要窗口开了且没结束，就必须显示，无论截止日是否在筛选范围内
+                // 这样避免了 "长窗口期任务进入窗口期后消失" 的问题
                 if (!empty($date_deadline)) {
                     $dl_dt = new DateTime($date_deadline);
-                    if ($dl_dt <= $future_dt || $dl_dt < $today_dt) { // 包括已过期的截止日
-                        $node_data = [
-                            'date' => $date_deadline,
-                            'type' => 'deadline', // 归类为截止日
-                            'type_name' => '窗口期进行中',
-                            'urgency' => dts_get_urgency_class($date_deadline),
-                            'urgency_text' => dts_get_urgency_text($date_deadline),
-                            'remark' => "窗口已于 {$date_window_start} 开启"
-                        ];
+
+                    // 计算剩余天数
+                    $diff = $today_dt->diff($dl_dt);
+                    $days = $diff->invert ? -$diff->days : $diff->days;
+
+                    // 只要没过期很久（比如超过365天），或者还在未来，就应该显示
+                    // 或者更严格一点：只要窗口开了，就显示，除非已经过期并被删除了。
+                    // 这里我们放宽显示条件，忽略 $filter_days
+
+                    $urgency = 'info';
+                    $urgency_text = '';
+
+                    if ($days < 0) {
+                        $urgency = 'danger';
+                        $urgency_text = "已过期 " . abs($days) . " 天";
+                    } else {
+                        // 窗口期内的正常状态
+                        if ($days <= 7) $urgency = 'danger';
+                        elseif ($days <= 30) $urgency = 'warning';
+                        else $urgency = 'success'; // 绿色：正常进行中，时间充裕
+
+                        $urgency_text = "剩 {$days} 天";
                     }
+
+                    $node_data = [
+                        'date' => $date_deadline,
+                        'type' => 'deadline', // 归类为截止日
+                        'type_name' => '窗口期进行中',
+                        'urgency' => $urgency,
+                        'urgency_text' => $urgency_text,
+                        'remark' => "窗口已于 {$date_window_start} 开启"
+                    ];
+
                 } else {
-                    // 有开始日但没有截止日（罕见，但也可能是永久窗口）
+                    // 有开始日但没有截止日
                     $node_data = [
                         'date' => $date_window_start,
                         'type' => 'window_open',
