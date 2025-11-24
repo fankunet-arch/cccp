@@ -108,19 +108,29 @@ function dts_calculate_nodes(array $rule, string $base_date, ?int $current_milea
     // 2. 周期类（last_done_based）：基于上次完成日计算下一次（截止日）
     elseif ($rule['rule_type'] === 'last_done_based') {
         $next_dt = clone $base_dt;
+        $interval_found = false;
 
         // 优先使用月数间隔
         if (!empty($rule['cycle_interval_months']) && $rule['cycle_interval_months'] > 0) {
             $next_dt->modify("+{$rule['cycle_interval_months']} months");
+            $interval_found = true;
         }
         // 否则使用天数间隔
         elseif (!empty($rule['cycle_interval_days']) && $rule['cycle_interval_days'] > 0) {
             $next_dt->modify("+{$rule['cycle_interval_days']} days");
+            $interval_found = true;
         }
 
-        $nodes['cycle_next_date'] = $next_dt->format('Y-m-d');
-        $nodes['deadline_date'] = $nodes['cycle_next_date']; // 映射到通用截止日
-        $window_base_dt = clone $next_dt; // 窗口基于下一次截止日计算
+        if (!$interval_found) {
+            // [Bug Fix] 如果没有有效间隔，不能计算下一周期，更不能把“今天”当做“截止日”
+            // 返回空节点或记录错误
+            error_log("DTS Calculation Error: Cyclic rule ID {$rule['id']} has no valid interval settings.");
+            // 不设置 deadline_date，避免误报过期
+        } else {
+            $nodes['cycle_next_date'] = $next_dt->format('Y-m-d');
+            $nodes['deadline_date'] = $nodes['cycle_next_date']; // 映射到通用截止日
+            $window_base_dt = clone $next_dt; // 窗口基于下一次截止日计算
+        }
 
         // 如果有里程间隔，计算建议里程
         if (!empty($rule['mileage_interval']) && $current_mileage !== null) {
@@ -618,10 +628,26 @@ function dts_save_object(PDO $pdo, int $subject_id, string $object_name, array $
  * @return int|false 返回事件ID，失败返回 false
  */
 function dts_save_event(PDO $pdo, int $object_id, array $params) {
+    $local_transaction = false;
+    if (!$pdo->inTransaction()) {
+        $pdo->beginTransaction();
+        $local_transaction = true;
+    }
+
     try {
         $event_id = $params['event_id'] ?? null;
         $is_update = !empty($event_id);
         $rule_mode = $params['rule_mode'] ?? 'auto'; // [v2.1.3] 规则模式
+
+        // [必须加入] 幂等性检查 (Duplicate Check)
+        // 仅在新增或关键字段变更时检查（此处简化为非更新操作即检查）
+        if (!$is_update) {
+            $check_stmt = $pdo->prepare("SELECT id FROM cp_dts_event WHERE object_id=? AND event_type=? AND event_date=? AND is_deleted=0 LIMIT 1");
+            $check_stmt->execute([$object_id, $params['event_type'], $params['event_date']]);
+            if ($check_stmt->fetch()) {
+                 throw new Exception('该日期已存在相同的事件记录，请勿重复添加。');
+            }
+        }
 
         // [v2.1.3] 规则处理逻辑：根据模式决定如何处理 rule_id
         $rule_id = $params['rule_id'] ?? null;
@@ -712,11 +738,20 @@ function dts_save_event(PDO $pdo, int $object_id, array $params) {
         }
 
         // 触发状态更新
-        dts_update_object_state($pdo, $object_id);
+        // [Safety Check] Must ensure state update succeeds, otherwise rollback
+        if (!dts_update_object_state($pdo, $object_id)) {
+            throw new Exception("Object state update failed for object #{$object_id}");
+        }
 
+        if ($local_transaction) {
+            $pdo->commit();
+        }
         return $final_event_id;
 
     } catch (Exception $e) {
+        if ($local_transaction && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         error_log("DTS: Error saving event: " . $e->getMessage());
         return false;
     }

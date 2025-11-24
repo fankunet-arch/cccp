@@ -211,7 +211,7 @@ if ($feedback) {
 <section class="content">
     <?php echo $feedback_html; ?>
 
-    <form action="<?php echo CP_BASE_URL; ?>dts_quick_save" method="post" class="form-horizontal" autocomplete="off">
+    <form action="<?php echo CP_BASE_URL; ?>dts_quick_save" method="post" class="form-horizontal" autocomplete="off" onsubmit="return handleFormSubmit(this);">
         <!-- Hidden fields for Edit Mode / Redirect -->
         <input type="hidden" name="event_id" value="<?php echo htmlspecialchars((string)$event_id); ?>">
 
@@ -523,6 +523,25 @@ if ($feedback) {
 </section>
 
 <script>
+// [Audit Fix] Prevent Double Submission
+function handleFormSubmit(form) {
+    var btn = form.querySelector('button[type="submit"]');
+    if (btn.disabled) {
+        return false;
+    }
+    btn.disabled = true;
+    var originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:8px;"></i> 处理中...';
+
+    // Safety timeout: re-enable after 10 seconds in case of network error/no response
+    setTimeout(function() {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }, 10000);
+
+    return true;
+}
+
 (function(){
     // 1. 定义 Toast 函数 (使用系统中 style.css 已有的 .cp-toast 样式)
     window.cpToast = function (text, type = 'success', timeout = 2500) {
