@@ -1,7 +1,7 @@
 <?php
 /**
  * DTS (Date Timeline System) 通用函数库
- * [完整修复版] 
+ * [完整修复版]
  * 1. 修复极速录入无规则时不更新截止日的问题
  * 2. 保留所有辅助函数 (urgency, categories等)
  */
@@ -96,68 +96,82 @@ function dts_calculate_nodes(array $rule, string $base_date, ?int $current_milea
         return [];
     }
 
-    // 1. 证件类（expiry_based）：基于过期日计算窗口
+    // 用于计算窗口的基准日期（通常是截止日）
+    $window_base_dt = null;
+
+    // 1. 证件类（expiry_based）：基准日即为过期日（截止日）
     if ($rule['rule_type'] === 'expiry_based') {
-        // 截止日就是过期日本身
         $nodes['deadline_date'] = $base_date;
-
-        // 最早可办日
-        if ($rule['earliest_offset_days'] !== null) {
-            $earliest_dt = clone $base_dt;
-            $earliest_dt->modify("{$rule['earliest_offset_days']} days");
-            $nodes['window_start_date'] = $earliest_dt->format('Y-m-d');
-        }
-
-        // 建议办理日
-        if ($rule['suggest_offset_days'] !== null) {
-            $suggest_dt = clone $base_dt;
-            $suggest_dt->modify("{$rule['suggest_offset_days']} days");
-            $nodes['suggest_date'] = $suggest_dt->format('Y-m-d');
-        }
-
-        // 最晚安全日
-        if ($rule['safe_last_offset_days'] !== null) {
-            $safe_dt = clone $base_dt;
-            $safe_dt->modify("{$rule['safe_last_offset_days']} days");
-            $nodes['window_end_date'] = $safe_dt->format('Y-m-d');
-        }
+        $window_base_dt = clone $base_dt;
     }
 
-    // 2. 周期类（last_done_based）：基于上次完成日计算下一次
-    if ($rule['rule_type'] === 'last_done_based') {
+    // 2. 周期类（last_done_based）：基于上次完成日计算下一次（截止日）
+    elseif ($rule['rule_type'] === 'last_done_based') {
         $next_dt = clone $base_dt;
 
         // 优先使用月数间隔
-        if ($rule['cycle_interval_months'] !== null && $rule['cycle_interval_months'] > 0) {
+        if (!empty($rule['cycle_interval_months']) && $rule['cycle_interval_months'] > 0) {
             $next_dt->modify("+{$rule['cycle_interval_months']} months");
         }
         // 否则使用天数间隔
-        elseif ($rule['cycle_interval_days'] !== null && $rule['cycle_interval_days'] > 0) {
+        elseif (!empty($rule['cycle_interval_days']) && $rule['cycle_interval_days'] > 0) {
             $next_dt->modify("+{$rule['cycle_interval_days']} days");
         }
 
         $nodes['cycle_next_date'] = $next_dt->format('Y-m-d');
+        $nodes['deadline_date'] = $nodes['cycle_next_date']; // 映射到通用截止日
+        $window_base_dt = clone $next_dt; // 窗口基于下一次截止日计算
 
         // 如果有里程间隔，计算建议里程
-        if ($rule['mileage_interval'] !== null && $current_mileage !== null) {
+        if (!empty($rule['mileage_interval']) && $current_mileage !== null) {
             $nodes['next_mileage_suggest'] = $current_mileage + $rule['mileage_interval'];
         }
     }
 
     // 3. 递交跟进类（submit_based）：基于递交日计算跟进日
-    if ($rule['rule_type'] === 'submit_based') {
+    elseif ($rule['rule_type'] === 'submit_based') {
         $follow_dt = clone $base_dt;
 
         // 优先使用月数偏移
-        if ($rule['follow_up_offset_months'] !== null && $rule['follow_up_offset_months'] > 0) {
+        if (!empty($rule['follow_up_offset_months']) && $rule['follow_up_offset_months'] > 0) {
             $follow_dt->modify("+{$rule['follow_up_offset_months']} months");
         }
         // 否则使用天数偏移
-        elseif ($rule['follow_up_offset_days'] !== null && $rule['follow_up_offset_days'] > 0) {
+        elseif (!empty($rule['follow_up_offset_days']) && $rule['follow_up_offset_days'] > 0) {
             $follow_dt->modify("+{$rule['follow_up_offset_days']} days");
         }
 
         $nodes['follow_up_date'] = $follow_dt->format('Y-m-d');
+        $nodes['deadline_date'] = $nodes['follow_up_date']; // 映射到通用截止日
+        $window_base_dt = clone $follow_dt;
+    }
+
+    // 统一计算窗口期 (Window Calculation)
+    // 只要确立了 window_base_dt (即截止日)，就可以根据 offset 计算窗口
+    if ($window_base_dt) {
+        // 最早可办日 (Window Start)
+        if (isset($rule['earliest_offset_days']) && $rule['earliest_offset_days'] !== null) {
+            $earliest_dt = clone $window_base_dt;
+            // offset 通常为负数，例如 -30 days
+            // 也可以是正数，根据 DateTime::modify 的灵活性
+            // 为确保兼容性，直接拼接 days。如果 DB 存的是 -30，则为 "-30 days"
+            $earliest_dt->modify("{$rule['earliest_offset_days']} days");
+            $nodes['window_start_date'] = $earliest_dt->format('Y-m-d');
+        }
+
+        // 建议办理日 (Suggest Date)
+        if (isset($rule['suggest_offset_days']) && $rule['suggest_offset_days'] !== null) {
+            $suggest_dt = clone $window_base_dt;
+            $suggest_dt->modify("{$rule['suggest_offset_days']} days");
+            $nodes['suggest_date'] = $suggest_dt->format('Y-m-d');
+        }
+
+        // 最晚安全日 (Window End)
+        if (isset($rule['safe_last_offset_days']) && $rule['safe_last_offset_days'] !== null) {
+            $safe_dt = clone $window_base_dt;
+            $safe_dt->modify("{$rule['safe_last_offset_days']} days");
+            $nodes['window_end_date'] = $safe_dt->format('Y-m-d');
+        }
     }
 
     return $nodes;
