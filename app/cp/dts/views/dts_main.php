@@ -3,10 +3,11 @@
  * DTS 总览页面
  * 显示未来一定时间范围内的所有重要节点
  *
- * [Audit Fix v2.2]
+ * [Audit Fix v2.3]
  * 1. 修复逻辑严重错误：窗口开始日过期不应显示为"危险/过期"，而应视为"窗口已开启"并切换为截止日视图。
  * 2. 合并节点：每个对象仅显示一个最优先的节点，避免列表冗余。
  * 3. [New] 强制显示已开启窗口的任务，即使截止日超出默认筛选范围。
+ * 4. [New] 过滤软删除对象 (is_deleted = 0)
  */
 
 declare(strict_types=1);
@@ -21,11 +22,12 @@ $filter_subject_id = dts_get('subject_id');
 $filter_type = dts_get('type'); // deadline, cycle, follow_up
 
 // 获取所有主体
-$subjects_stmt = $pdo->query("SELECT * FROM cp_dts_subject WHERE subject_status = 1 ORDER BY subject_name");
+$subjects_stmt = $pdo->query("SELECT * FROM cp_dts_subject WHERE subject_status = 1 AND is_deleted = 0 ORDER BY subject_name");
 $subjects = $subjects_stmt->fetchAll();
 
 // 构建查询：获取所有对象及其状态
-$where_clauses = ["o.active_flag = 1"];
+// [Audit Fix] 增加 o.is_deleted = 0 过滤
+$where_clauses = ["o.active_flag = 1", "o.is_deleted = 0"];
 $params = [];
 
 if ($filter_subject_id) {
