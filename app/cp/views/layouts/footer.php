@@ -19,7 +19,7 @@
         <!-- 右侧：版本信息（右对齐显示） -->
         <div style="margin-left:auto;white-space:nowrap;">
             <span style="opacity:.8">Version</span>
-            <strong>1.0</strong>
+            <strong>1.2.1</strong>
             <span style="opacity:.6">（Rebuild）</span>
         </div>
     </footer>
