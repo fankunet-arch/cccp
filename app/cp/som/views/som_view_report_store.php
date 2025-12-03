@@ -38,7 +38,7 @@ if (!isset($_SESSION['user_id'])) { exit('Access Denied.'); }
           </button>
         </div>
         <div class="col-md-4">
-          <div class="subtle" style="color:var(--c-muted); margin-bottom:6px">月营业额=当月现金+银行收入；次月 1 号的银行收入归次月。</div>
+          <div class="subtle" style="color:var(--c-muted); margin-bottom:6px">月营业额=当月现金+银行收入；人均消费=月总收入/月总人数。</div>
           <button class="btn btn-primary" id="btn-generate"><i class="fa fa-rocket"></i> 生成报表</button>
           <button class="btn btn-default" id="btn-last12"><i class="fa fa-history"></i> 最近 12 个月</button>
           <button class="btn btn-default" id="btn-export"><i class="fa fa-download"></i> 导出 CSV</button>
