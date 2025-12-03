@@ -175,5 +175,7 @@ try {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-daterangepicker/3.0.5/daterangepicker.min.js"></script>
 <script>
     const CP_BASE_URL = "<?php echo CP_BASE_URL; ?>";
+    const TEA_MIN_DATE = "<?php echo $min_date; ?>";
+    const TEA_MAX_DATE = "<?php echo $max_date; ?>";
 </script>
 <script src="/cp/tea/js/tea_report_investor.js"></script>

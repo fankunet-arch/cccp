@@ -47,8 +47,9 @@
 
 
   /* --- Date range Calculation --- */
-  const MIN_DATE = '<?php echo $min_date; ?>';
-  const MAX_DATE = '<?php echo $max_date; ?>';
+  // 使用在HTML中定义的全局变量
+  const MIN_DATE = window.TEA_MIN_DATE || '2020-01-01';
+  const MAX_DATE = window.TEA_MAX_DATE || moment().format('YYYY-MM-DD');
 
   const start_default = moment().subtract(24, 'months').startOf('day');
   const start_final = moment.max(start_default, moment(MIN_DATE).startOf('day'));
