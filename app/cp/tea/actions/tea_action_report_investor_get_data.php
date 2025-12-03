@@ -41,31 +41,35 @@ const KPI_CATEGORIES = [
 try {
     $user_filter_start_date = $_GET['start_date'] ?? null;
     $user_filter_end_date   = $_GET['end_date'] ?? null;
-    
-    // Default to a 24-month filter range if user hasn't specified
+
+    // 如果没有指定日期，使用数据库中的实际数据范围
     if (!$user_filter_start_date || !$user_filter_end_date) {
-        // 使用默认时区
-        try {
-            $tz = new DateTimeZone('Europe/Madrid');
-        } catch (Exception $e) {
-            $tz = new DateTimeZone(date_default_timezone_get());
+        // 查询数据库中的实际最小和最大日期
+        $stmt_date_range = $pdo->query("SELECT MIN(tea_date) as min_date, MAX(tea_date) as max_date FROM tea_financial_transactions");
+        $date_range = $stmt_date_range->fetch(PDO::FETCH_ASSOC);
+
+        if ($date_range && $date_range['min_date'] && $date_range['max_date']) {
+            // 使用数据库中的实际日期范围
+            $user_filter_start_date = $date_range['min_date'];
+            $user_filter_end_date   = $date_range['max_date'];
+        } else {
+            // 如果数据库为空，使用默认范围（最近24个月）
+            try {
+                $tz = new DateTimeZone('Europe/Madrid');
+            } catch (Exception $e) {
+                $tz = new DateTimeZone(date_default_timezone_get());
+            }
+            $today = new DateTimeImmutable('today', $tz);
+            $user_filter_start_date = $today->modify('-24 months')->format('Y-m-d');
+            $user_filter_end_date   = $today->format('Y-m-d');
         }
-        $today = new DateTimeImmutable('today', $tz);
-        $user_filter_start_date = $today->modify('-24 months')->format('Y-m-d');
-        $user_filter_end_date   = $today->format('Y-m-d');
     }
     
     // -----------------------------------------------------------
     // --- 1. Fetch ALL relevant data for KPI and Breakdown Calc ---
     // -----------------------------------------------------------
-    
-    // [MODIFIED] 从查询最小日期中移除 investor_return_cash
-    $kpi_categories_str = implode("', '", KPI_CATEGORIES);
-    $stmt_min_date = $pdo->prepare("SELECT MIN(tea_date) FROM tea_financial_transactions WHERE tea_type IN ('{$kpi_categories_str}')");
-    $stmt_min_date->execute();
-    $min_date_for_kpi = $stmt_min_date->fetchColumn() ?: $user_filter_start_date; // Use min date or fallback to filter start
 
-    // Fetch ALL records from the earliest known date up to the filter end date
+    // 直接使用用户筛选的日期范围获取所有数据
     $sql_all = "
         SELECT tea_fin_id, tea_date, tea_store, tea_currency, tea_amount, tea_exchange_rate, tea_type, tea_is_equity, tea_notes
         FROM tea_financial_transactions
@@ -73,8 +77,12 @@ try {
         ORDER BY tea_date ASC, tea_fin_id ASC
     ";
     $stmt_all = $pdo->prepare($sql_all);
-    $stmt_all->execute([':start' => $min_date_for_kpi, ':end' => $user_filter_end_date]);
+    $stmt_all->execute([':start' => $user_filter_start_date, ':end' => $user_filter_end_date]);
     $all_rows_raw = $stmt_all->fetchAll(PDO::FETCH_ASSOC);
+
+    // 调试日志
+    error_log("[TEA DEBUG] Query date range: {$user_filter_start_date} to {$user_filter_end_date}");
+    error_log("[TEA DEBUG] Raw rows fetched: " . count($all_rows_raw));
 
     // -----------------------------------------------------------
     // --- 2. Process Data: Currency Conversion and Sign Correction ---
@@ -298,12 +306,12 @@ try {
     $payload = [
         'range' => ['start_date' => $user_filter_start_date, 'end_date' => $user_filter_end_date],
         'summary' => [
-            'total_principal_kpi' => $total_principal_kpi,      
-            'total_returns_kpi' => $total_returns_kpi, 
+            'total_principal_kpi' => $total_principal_kpi,
+            'total_returns_kpi' => $total_returns_kpi,
             'total_net_kpi' => $total_net_kpi,
             'roi_kpi' => $roi_kpi,
             'annualized_kpi' => $annual_kpi,
-            'invest_months' => $months, 
+            'invest_months' => $months,
             'invest_start' => $first_kpi_start_date,
             'invest_end'   => $user_filter_end_date,
             'total_net_return_breakdown' => (float)number_format((float)$total_net_return_breakdown_str, DISPLAY_SCALE, '.', ''),
@@ -311,8 +319,26 @@ try {
             'total_expense_filtered' => (float)number_format((float)$total_expense_filtered_str, DISPLAY_SCALE, '.', '')
         ],
         'breakdown' => $float_breakdown,
-        'recent_transactions' => $recent_transactions, 
+        'recent_transactions' => $recent_transactions,
+        '_debug' => [
+            'query_date_range' => "{$user_filter_start_date} ~ {$user_filter_end_date}",
+            'raw_rows_count' => count($all_rows_raw),
+            'processed_rows_count' => count($all_rows_processed),
+            'transactions_count' => count($recent_transactions),
+            'breakdown_categories' => count($float_breakdown),
+            'first_kpi_date' => $first_kpi_start_date,
+            'php_version' => PHP_VERSION,
+            'server_time' => date('Y-m-d H:i:s')
+        ]
     ];
+
+    // 调试日志
+    error_log("[TEA DEBUG] Query date range: {$user_filter_start_date} ~ {$user_filter_end_date}");
+    error_log("[TEA DEBUG] Raw rows: " . count($all_rows_raw));
+    error_log("[TEA DEBUG] Processed rows: " . count($all_rows_processed));
+    error_log("[TEA DEBUG] Recent transactions: " . count($recent_transactions));
+    error_log("[TEA DEBUG] Breakdown categories: " . count($float_breakdown));
+    error_log("[TEA DEBUG] Total principal: $total_principal_kpi, Total returns: $total_returns_kpi");
 
     echo json_encode(['success' => true, 'data' => $payload]);
 } catch (Throwable $e) {

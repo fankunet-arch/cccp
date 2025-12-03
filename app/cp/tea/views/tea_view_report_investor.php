@@ -84,6 +84,20 @@ try {
     <div class="kpi"><p>ROI / 年化</p><h3><span id="v-roi">—</span> <span class="badge-pill pill-ok" id="v-annual">—</span></h3></div>
   </div>
 
+  <div class="card" id="card-empty-state" style="display:none;">
+    <div class="card-body" style="text-align:center; padding:60px 20px;">
+      <i class="fas fa-inbox" style="font-size:72px; color:var(--c-muted); opacity:0.3; margin-bottom:20px;"></i>
+      <h3 style="color:var(--c-text); margin-bottom:10px;">暂无交易数据</h3>
+      <p style="color:var(--c-muted); margin-bottom:24px;">
+        当前选择的日期范围内没有投资交易记录。<br>
+        请先添加一些交易数据，或调整日期范围。
+      </p>
+      <a href="<?php echo CP_BASE_URL; ?>tea_add" class="btn btn-primary" style="border-radius:10px; padding:10px 24px;">
+        <i class="fa fa-plus"></i> 添加交易
+      </a>
+    </div>
+  </div>
+
   <div class="card" id="card-result" style="display:none;">
     <div class="card-header">
       <h3 class="box-title" id="res-title"><i class="fa fa-chart-pie"></i> 投资回报明细</h3>
@@ -161,5 +175,7 @@ try {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-daterangepicker/3.0.5/daterangepicker.min.js"></script>
 <script>
     const CP_BASE_URL = "<?php echo CP_BASE_URL; ?>";
+    const TEA_MIN_DATE = "<?php echo $min_date; ?>";
+    const TEA_MAX_DATE = "<?php echo $max_date; ?>";
 </script>
 <script src="/cp/tea/js/tea_report_investor.js"></script>
