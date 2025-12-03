@@ -241,4 +241,3 @@ if ($is_som_active) {
 
 
         <div class="view-content-wrapper">
-<script src="/cp/js/main.js"></script>

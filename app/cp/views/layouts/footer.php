@@ -24,5 +24,8 @@
         </div>
     </footer>
 
-</div></div></body>
+</div></div>
+
+<script src="/cp/js/main.js"></script>
+</body>
 </html>
