@@ -113,17 +113,34 @@
         const s = btn.dataset.start;
         const e = btn.dataset.end;
 
-        $('#card-result, #kpi-row, #card-recent-txs').hide();
+        console.log('[TEA] Loading data for range:', s, 'to', e);
+        console.log('[TEA] API endpoint:', API_ENDPOINT);
+
+        $('#card-result, #kpi-row, #card-recent-txs, #card-empty-state').hide();
 
         $.getJSON(API_ENDPOINT, { start_date: s, end_date: e }, function(resp){
+          console.log('[TEA] Server response:', resp);
+
           if (!resp || !resp.success) {
-              alert(resp && resp.message ? resp.message : '加载失败');
+              const errorMsg = resp && resp.message ? resp.message : '加载失败';
+              console.error('[TEA] Load failed:', errorMsg);
+              alert('数据加载失败: ' + errorMsg);
               return;
           }
 
           const d = resp.data || {};
           const summary = d.summary || {};
           const range = d.range || {};
+          const transactions = d.recent_transactions || [];
+
+          console.log('[TEA] Data loaded, transactions count:', transactions.length);
+
+          // 检查是否有任何交易数据
+          if (transactions.length === 0) {
+              console.log('[TEA] No transactions found, showing empty state');
+              $('#card-empty-state').show();
+              return;
+          }
 
           const principal = Number(summary.total_principal_kpi) || 0;
           const returns = Number(summary.total_returns_kpi) || 0;

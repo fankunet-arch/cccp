@@ -61,7 +61,8 @@ try {
     
     // [MODIFIED] 从查询最小日期中移除 investor_return_cash
     $kpi_categories_str = implode("', '", KPI_CATEGORIES);
-    $stmt_min_date = $pdo->prepare("SELECT MIN(tea_date) FROM tea_financial_transactions WHERE tea_type IN ('{$kpi_categories_str}')");
+    $sql_min_date = "SELECT MIN(tea_date) FROM tea_financial_transactions WHERE tea_type IN ('" . $kpi_categories_str . "')";
+    $stmt_min_date = $pdo->prepare($sql_min_date);
     $stmt_min_date->execute();
     $min_date_for_kpi = $stmt_min_date->fetchColumn() ?: $user_filter_start_date; // Use min date or fallback to filter start
 
