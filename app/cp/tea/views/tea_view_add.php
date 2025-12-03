@@ -156,7 +156,7 @@ HTML;
                             
                             <div class="compact-field-unit">
                                 <label for="tea_store">关联店铺</label>
-                                <select class="form-control" id="tea_store" name="tea_store" style="flex:1; padding: 10px 15px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; max-width: none;">
+                                <select class="form-control" id="tea_store" name="tea_store">
                                     <option value="">(无店铺关联)</option>
                                     <?php foreach ($stores as $store): ?>
                                         <option value="<?php echo htmlspecialchars($store['store_name']); ?>" <?php echo ($default_store === $store['store_name']) ? 'selected' : ''; ?>>
@@ -168,7 +168,7 @@ HTML;
 
                             <div class="compact-field-unit">
                                 <label for="tea_currency">币种 *</label>
-                                <select class="form-control" id="tea_currency" name="tea_currency" required style="flex:1; padding: 10px 15px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; max-width: none;">
+                                <select class="form-control" id="tea_currency" name="tea_currency" required>
                                     <option value="">请选择</option>
                                     <option value="EUR" <?php echo ($default_currency === 'EUR') ? 'selected' : ''; ?>>欧元 (EUR)</option>
                                     <option value="CNY" <?php echo ($default_currency === 'CNY') ? 'selected' : ''; ?>>人民币 (CNY)</option>
@@ -179,11 +179,11 @@ HTML;
                             <?php echo render_compact_input('交易金额 *', 'tea_amount', 'text', $default_amount, '0.00'); ?>
                             
                             <?php echo render_compact_input('当日汇率', 'tea_exchange_rate', 'text', $default_exchange_rate, '例如: 7.80'); ?>
-                            <div class="field-hint" style="grid-column: 2 / -1; margin-top: -10px; margin-bottom: 10px;">非必填。仅当币种非基础币种时，建议填写。</div>
+                            <div class="field-hint">非必填。仅当币种非基础币种时，建议填写。</div>
 
                             <div class="compact-field-unit">
                                 <label for="tea_type">交易类型 *</label>
-                                <select class="form-control" id="tea_type" name="tea_type" required style="flex:1; padding: 10px 15px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; max-width: none;">
+                                <select class="form-control" id="tea_type" name="tea_type" required>
                                     <option value="">请选择</option>
                                     <?php foreach ($transaction_types as $value => $label): ?>
                                         <option value="<?php echo $value; ?>" <?php echo ($default_type === $value) ? 'selected' : ''; ?>>
@@ -192,17 +192,15 @@ HTML;
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            
+
                             <div class="compact-field-unit">
                                 <label for="tea_is_equity">是否计入本金</label>
-                                <div style="flex: 1; text-align: left; display: flex; align-items: center; height: 38px;">
-                                    <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="checkbox" id="tea_is_equity" name="tea_is_equity" value="1" <?php echo $default_is_equity ? 'checked' : ''; ?>>
-                                        <label class="form-check-label" for="tea_is_equity" style="text-align: left; min-width: auto; padding-right: 0; font-weight: 400; color: var(--text-color);">是 (作为股东资本投入/支出)</label>
-                                    </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="tea_is_equity" name="tea_is_equity" value="1" <?php echo $default_is_equity ? 'checked' : ''; ?>>
+                                    <label class="form-check-label" for="tea_is_equity">是 (作为股东资本投入/支出)</label>
                                 </div>
                             </div>
-                            <div class="field-hint" id="equity-hint" style="grid-column: 2 / -1; margin-top: -10px; margin-bottom: 10px;">
+                            <div class="field-hint" id="equity-hint">
                                 勾选此项表示这笔支出/流入是由股东资金贡献的。
                             </div>
                         </div>
@@ -216,7 +214,7 @@ HTML;
                     <div class="card-body">
                         <div class="form-group">
                             <label for="tea_notes" class="sr-only">备注</label>
-                            <textarea class="form-control" id="tea_notes" name="tea_notes" rows="3" placeholder="填写交易详细说明或摘要。" style="width: 100%; border-radius: 8px; border-color: var(--border-color); padding: 10px 15px;"><?php echo htmlspecialchars($default_notes); ?></textarea>
+                            <textarea class="form-control" id="tea_notes" name="tea_notes" rows="3" placeholder="填写交易详细说明或摘要。"><?php echo htmlspecialchars($default_notes); ?></textarea>
                         </div>
                     </div>
                 </div>
@@ -226,20 +224,10 @@ HTML;
         
         <div class="row">
             <div class="col-md-12">
-                <div class="card box-default">
-                    <div class="card-footer"
-                         style="display:flex;align-items:center;justify-content:flex-end;
-                                padding:16px 24px;border-top:1px solid #e9eef5;
-                                background:linear-gradient(180deg,#fff,#f8fafc);
-                                border-radius:0 0 12px 12px;">
-                        <button type="submit"
-                                style="display:inline-flex;align-items:center;justify-content:center;
-                                       height:44px;padding:0 26px;border:0;border-radius:12px;
-                                       background:#3b82f6;color:#fff;font-weight:700;
-                                       box-shadow:0 8px 18px rgba(59,130,246,.28);">
-                            <i class="fas fa-save" style="margin-right:8px;"></i> <?php echo $mode_text; ?>交易
-                        </button>
-                    </div>
+                <div class="card-footer" style="text-align: right;">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> <?php echo $mode_text; ?>交易
+                    </button>
                 </div>
             </div>
         </div>
