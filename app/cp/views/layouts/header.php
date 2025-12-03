@@ -166,7 +166,7 @@ if ($is_som_active) {
                     </li>
 					<li class="nav-item">
                         <a href="<?php echo CP_BASE_URL; ?>tea_store_manage" class="nav-link <?php echo isActive('tea_store_manage', $current_action); ?>">
-                            <i class="far fa-circle"></i> **店铺管理**
+                            <i class="far fa-circle"></i> 店铺管理
                         </a>
                     </li>
                 </ul>
