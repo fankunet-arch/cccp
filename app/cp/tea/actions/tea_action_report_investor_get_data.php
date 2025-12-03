@@ -320,9 +320,21 @@ try {
         ],
         'breakdown' => $float_breakdown,
         'recent_transactions' => $recent_transactions,
+        '_debug' => [
+            'query_date_range' => "{$user_filter_start_date} ~ {$user_filter_end_date}",
+            'raw_rows_count' => count($all_rows_raw),
+            'processed_rows_count' => count($all_rows_processed),
+            'transactions_count' => count($recent_transactions),
+            'breakdown_categories' => count($float_breakdown),
+            'first_kpi_date' => $first_kpi_start_date,
+            'php_version' => PHP_VERSION,
+            'server_time' => date('Y-m-d H:i:s')
+        ]
     ];
 
     // 调试日志
+    error_log("[TEA DEBUG] Query date range: {$user_filter_start_date} ~ {$user_filter_end_date}");
+    error_log("[TEA DEBUG] Raw rows: " . count($all_rows_raw));
     error_log("[TEA DEBUG] Processed rows: " . count($all_rows_processed));
     error_log("[TEA DEBUG] Recent transactions: " . count($recent_transactions));
     error_log("[TEA DEBUG] Breakdown categories: " . count($float_breakdown));

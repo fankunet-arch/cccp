@@ -115,32 +115,61 @@
 
         console.log('[TEA] Loading data for range:', s, 'to', e);
         console.log('[TEA] API endpoint:', API_ENDPOINT);
+        console.log('[TEA] Full API URL:', API_ENDPOINT + '?start_date=' + s + '&end_date=' + e);
 
         $('#card-result, #kpi-row, #card-recent-txs, #card-empty-state').hide();
 
-        $.getJSON(API_ENDPOINT, { start_date: s, end_date: e }, function(resp){
-          console.log('[TEA] Server response:', resp);
+        $.ajax({
+          url: API_ENDPOINT,
+          data: { start_date: s, end_date: e },
+          dataType: 'json',
+          success: function(resp){
+            console.log('[TEA] Server response:', resp);
+            console.log('[TEA] Response type:', typeof resp);
+            console.log('[TEA] Response success:', resp.success);
 
-          if (!resp || !resp.success) {
-              const errorMsg = resp && resp.message ? resp.message : '加载失败';
-              console.error('[TEA] Load failed:', errorMsg);
-              alert('数据加载失败: ' + errorMsg);
-              return;
-          }
+            if (!resp || !resp.success) {
+                const errorMsg = resp && resp.message ? resp.message : '加载失败';
+                console.error('[TEA] Load failed:', errorMsg);
+                alert('数据加载失败: ' + errorMsg + '\n\n请打开浏览器控制台(F12)查看详细信息');
+                return;
+            }
 
-          const d = resp.data || {};
-          const summary = d.summary || {};
-          const range = d.range || {};
-          const transactions = d.recent_transactions || [];
+            const d = resp.data || {};
+            const summary = d.summary || {};
+            const range = d.range || {};
+            const transactions = d.recent_transactions || [];
 
-          console.log('[TEA] Data loaded, transactions count:', transactions.length);
+            console.log('[TEA] Data loaded successfully');
+            console.log('[TEA] - Transactions count:', transactions.length);
+            console.log('[TEA] - Date range:', range.start_date, 'to', range.end_date);
+            console.log('[TEA] - Summary data:', summary);
 
-          // 检查是否有任何交易数据
-          if (transactions.length === 0) {
-              console.log('[TEA] No transactions found, showing empty state');
-              $('#card-empty-state').show();
-              return;
-          }
+            // 输出调试信息
+            if (d._debug) {
+                console.log('[TEA] === 服务器调试信息 ===');
+                console.log('[TEA] 查询日期范围:', d._debug.query_date_range);
+                console.log('[TEA] 原始记录数:', d._debug.raw_rows_count);
+                console.log('[TEA] 处理后记录数:', d._debug.processed_rows_count);
+                console.log('[TEA] 交易记录数:', d._debug.transactions_count);
+                console.log('[TEA] 分类数:', d._debug.breakdown_categories);
+                console.log('[TEA] PHP版本:', d._debug.php_version);
+                console.log('[TEA] 服务器时间:', d._debug.server_time);
+                console.log('[TEA] ========================');
+            }
+
+            // 检查是否有任何交易数据
+            if (transactions.length === 0) {
+                console.warn('[TEA] ⚠️ 没有找到交易记录！');
+                console.warn('[TEA] 原始记录数: ' + (d._debug ? d._debug.raw_rows_count : 'N/A'));
+                console.warn('[TEA] 请检查：');
+                console.warn('[TEA] 1. 数据库中是否有tea_financial_transactions记录');
+                console.warn('[TEA] 2. tea_date字段是否在查询日期范围内');
+                console.warn('[TEA] 3. tea_type字段的值是否正确');
+                console.log('[TEA] Full data object:', d);
+                $('#card-empty-state').show();
+                return;
+            }
 
           const principal = Number(summary.total_principal_kpi) || 0;
           const returns = Number(summary.total_returns_kpi) || 0;
@@ -243,10 +272,28 @@
           fillRecentTxs(d.recent_transactions, startDisplay, endDisplay);
 
           $('#kpi-row, #card-result').show();
-        }).fail(function(xhr) {
-             console.error("AJAX Error:", xhr.statusText, xhr.responseText);
-             alert("服务器请求失败或返回格式错误，请检查后端日志。");
-             $('#kpi-row, #card-result').hide();
+          },
+          error: function(xhr, textStatus, errorThrown) {
+             console.error("[TEA] AJAX请求失败!");
+             console.error("[TEA] 状态:", textStatus);
+             console.error("[TEA] 错误:", errorThrown);
+             console.error("[TEA] HTTP状态码:", xhr.status);
+             console.error("[TEA] 响应文本:", xhr.responseText);
+
+             let errorDetail = '';
+             if (xhr.status === 0) {
+                errorDetail = '无法连接到服务器，请检查网络';
+             } else if (xhr.status === 404) {
+                errorDetail = 'API端点未找到 (404)\nURL: ' + API_ENDPOINT;
+             } else if (xhr.status === 500) {
+                errorDetail = '服务器内部错误 (500)';
+             } else {
+                errorDetail = '状态码: ' + xhr.status;
+             }
+
+             alert("TEA投资报表加载失败!\n\n" + errorDetail + "\n\n请按F12打开控制台查看详细错误信息");
+             $('#kpi-row, #card-result, #card-empty-state').hide();
+          }
         });
       }
 
