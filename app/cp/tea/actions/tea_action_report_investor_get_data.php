@@ -44,8 +44,12 @@ try {
     
     // Default to a 24-month filter range if user hasn't specified
     if (!$user_filter_start_date || !$user_filter_end_date) {
-        global $config;
-        $tz = new DateTimeZone($config['timezone'] ?? 'Europe/Madrid');
+        // 使用默认时区
+        try {
+            $tz = new DateTimeZone('Europe/Madrid');
+        } catch (Exception $e) {
+            $tz = new DateTimeZone(date_default_timezone_get());
+        }
         $today = new DateTimeImmutable('today', $tz);
         $user_filter_start_date = $today->modify('-24 months')->format('Y-m-d');
         $user_filter_end_date   = $today->format('Y-m-d');
@@ -219,9 +223,30 @@ try {
     // ROI / Annualized Calculations
     $roi_base = ($total_principal_kpi != 0.0) ? $total_principal_kpi : null;
     $roi_kpi = ($roi_base !== null && $roi_base != 0.0) ? ($total_returns_kpi / $roi_base) : null;
-    
-    $end_dt   = new DateTimeImmutable($user_filter_end_date);
-    $start_dt = $first_principal_date ? new DateTimeImmutable($first_principal_date) : null;
+
+    // 获取或创建时区对象
+    try {
+        $tz = new DateTimeZone('Europe/Madrid');
+    } catch (Exception $e) {
+        $tz = new DateTimeZone(date_default_timezone_get());
+    }
+
+    // 安全地创建日期对象
+    try {
+        $end_dt = new DateTimeImmutable($user_filter_end_date, $tz);
+    } catch (Exception $e) {
+        $end_dt = new DateTimeImmutable('now', $tz);
+    }
+
+    $start_dt = null;
+    if ($first_principal_date) {
+        try {
+            $start_dt = new DateTimeImmutable($first_principal_date, $tz);
+        } catch (Exception $e) {
+            $start_dt = null;
+        }
+    }
+
     $months = null;
     if ($start_dt) {
         $diff = $start_dt->diff($end_dt);

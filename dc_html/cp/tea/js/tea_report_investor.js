@@ -1,6 +1,6 @@
 (function(){
 
-  const API_ENDPOINT = '<?php echo CP_BASE_URL; ?>tea_report_investor_get_data';
+  const API_ENDPOINT = CP_BASE_URL + 'tea_report_investor_get_data';
 
   /* --- Theme initialization (Robust Rewrite) --- */
   function setSeg(mode){
@@ -267,7 +267,7 @@
               const amount_str = nf(amount) + ' EUR (' + tx.tea_currency + rate_display + ')';
               const is_equity_str = is_equity ? '是' : '否';
 
-              const editUrl = '<?php echo CP_BASE_URL; ?>tea_add&id=' + tx.tea_fin_id;
+              const editUrl = CP_BASE_URL + 'tea_add&id=' + tx.tea_fin_id;
 
               const dateCell = $('<td>').append($('<a>')
                   .attr('href', editUrl)
