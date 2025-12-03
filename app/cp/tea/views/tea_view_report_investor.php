@@ -161,5 +161,10 @@ try {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-daterangepicker/3.0.5/daterangepicker.min.js"></script>
 <script>
     const CP_BASE_URL = "<?php echo CP_BASE_URL; ?>";
+    // 将日期配置注入全局，供静态 JS 读取，避免在静态文件中解析 PHP。
+    window.TEA_REPORT_INVESTOR_CONFIG = {
+        minDate: "<?php echo $min_date; ?>",
+        maxDate: "<?php echo $max_date; ?>"
+    };
 </script>
 <script src="/cp/tea/js/tea_report_investor.js"></script>

@@ -1,6 +1,7 @@
 (function(){
 
   const API_ENDPOINT = CP_BASE_URL + 'tea_report_investor_get_data';
+  const DATE_CONFIG = window.TEA_REPORT_INVESTOR_CONFIG || {};
 
   /* --- Theme initialization (Robust Rewrite) --- */
   function setSeg(mode){
@@ -47,12 +48,17 @@
 
 
   /* --- Date range Calculation --- */
-  const MIN_DATE = '<?php echo $min_date; ?>';
-  const MAX_DATE = '<?php echo $max_date; ?>';
+  const MIN_DATE = DATE_CONFIG.minDate || moment().startOf('year').format('YYYY-MM-DD');
+  const MAX_DATE = DATE_CONFIG.maxDate || moment().format('YYYY-MM-DD');
 
   const start_default = moment().subtract(24, 'months').startOf('day');
-  const start_final = moment.max(start_default, moment(MIN_DATE).startOf('day'));
-  const end_final = moment(MAX_DATE).endOf('day');
+  const minMoment = moment(MIN_DATE, 'YYYY-MM-DD', true);
+  const maxMoment = moment(MAX_DATE, 'YYYY-MM-DD', true);
+  const safeMin = minMoment.isValid() ? minMoment.startOf('day') : start_default.clone();
+  const safeMax = maxMoment.isValid() ? maxMoment.endOf('day') : moment().endOf('day');
+
+  const start_final = moment.max(start_default, safeMin);
+  const end_final = safeMax;
 
 
   function setLabel(s, e){
