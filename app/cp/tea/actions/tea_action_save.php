@@ -83,7 +83,7 @@ try {
         ";
         $stmt = $pdo->prepare($sql);
         $stmt->bindValue(':fin_id', $fin_id, PDO::PARAM_INT);
-        $message = "交易 ID {$fin_id} 已成功更新。";
+        $message = "✓ 更新成功！交易 ID {$fin_id} 已成功更新。";
         $redirect_url = CP_BASE_URL . "tea_add&id=" . $fin_id; 
 
     } else {
@@ -100,7 +100,7 @@ try {
             )";
         $stmt = $pdo->prepare($sql);
         $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
-        $message = "新交易已成功记录：{$date} - {$type} " . number_format($amount, 2) . " {$currency}。";
+        $message = "✓ 添加成功！新交易已成功记录：{$date} - {$type} " . number_format($amount, 2) . " {$currency}。";
         $redirect_url = CP_BASE_URL . "tea_add&date=" . $date; 
     }
     

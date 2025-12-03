@@ -367,9 +367,9 @@ $(document).ready(function() {
     function checkFlashMessage() {
         var $marked = $('#feedback-bar:visible').first();
         if ($marked.length){
-            const type = $marked.hasClass('alert-success') ? 'success' : 'error';
-            const text = $marked.clone().find('.close').remove().end().text().trim(); 
-            
+            const type = $marked.hasClass('success') ? 'success' : 'error';
+            const text = $marked.clone().find('.close').remove().end().text().trim();
+
             cpToast(text, type, 2600);
             $marked.remove();
             return;
