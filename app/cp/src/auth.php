@@ -87,7 +87,7 @@ function display_login_page(): void
     <main class="w-100 m-auto p-4">
         <div class="card login-card mx-auto">
             <div class="card-body p-4 p-sm-5">
-                <h3 class="card-title text-center mb-4 fw-bold">Sushisom CP</h3>
+                <h3 class="card-title text-center mb-4 fw-bold">ABCABC CP</h3>
 
                 {$error_message}
 
