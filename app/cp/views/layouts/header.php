@@ -295,7 +295,7 @@ if ($is_som_active) {
         <div class="view-content-wrapper">
 
 <script>
-// 侧边栏和菜单控制 - 修复版
+// 侧边栏控制
 (function() {
     'use strict';
 
@@ -319,43 +319,6 @@ if ($is_som_active) {
         if (toggleBtn) {
             toggleBtn.addEventListener('click', toggleSidebar);
         }
-
-        // 菜单折叠功能 - 修复版
-        const menuToggles = document.querySelectorAll('.menu-toggle');
-        menuToggles.forEach(function(toggle) {
-            toggle.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation(); // 阻止事件冒泡
-
-                const parent = this.closest('.treeview');
-                const submenu = parent.querySelector('.treeview-menu');
-
-                if (!parent || !submenu) return;
-
-                const isOpen = parent.classList.contains('menu-open');
-
-                if (isOpen) {
-                    // 关闭当前菜单
-                    parent.classList.remove('menu-open');
-                    submenu.style.display = 'none';
-                } else {
-                    // 先关闭所有其他菜单
-                    document.querySelectorAll('.treeview.menu-open').forEach(function(openMenu) {
-                        if (openMenu !== parent) {
-                            openMenu.classList.remove('menu-open');
-                            const openSubmenu = openMenu.querySelector('.treeview-menu');
-                            if (openSubmenu) {
-                                openSubmenu.style.display = 'none';
-                            }
-                        }
-                    });
-
-                    // 打开当前菜单
-                    parent.classList.add('menu-open');
-                    submenu.style.display = 'block';
-                }
-            });
-        });
     });
 })();
 </script>
