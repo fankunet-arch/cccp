@@ -12,8 +12,9 @@ define('BASE_PATH', dirname(dirname(__DIR__)));
 define('CP_APP_DIR', BASE_PATH . '/app/cp');
 
 // ---------- 更新 CP_BASE_URL ----------
+// [修复] CP平台必须使用 /cp/index.php，不可使用根目录
 if (!defined('CP_BASE_URL')) {
-    define('CP_BASE_URL', '/index.php?action=');
+    define('CP_BASE_URL', '/cp/index.php?action=');
 }
 
 // ---------- 引导 & 鉴权 ----------
