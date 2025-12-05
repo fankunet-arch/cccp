@@ -1,6 +1,6 @@
 <?php
 // /app/cp/views/layouts/header.php
-// MRS-Inspired Redesign - Modern Menu Structure
+// MRS-Inspired Redesign - Modern Menu Structure (Fixed Menu Toggle)
 
 // 确保已登录
 if (!function_exists('is_logged_in') || !is_logged_in()) {
@@ -112,7 +112,7 @@ if ($is_som_active) {
                 </li>
 
                 <li class="nav-item">
-                    <a href="<?php echo CP_BASE_URL; ?>dashboard" class="nav-link <?php echo isActive('dashboard', $current_action); ?>">
+                    <a href="/cp/index.php?action=dashboard" class="nav-link <?php echo isActive('dashboard', $current_action); ?>">
                         <i class="fas fa-tachometer-alt"></i>
                         <span>仪表盘</span>
                     </a>
@@ -125,7 +125,7 @@ if ($is_som_active) {
 
                 <!-- Sushisom 财务 -->
                 <li class="nav-item treeview <?php echo isMenuOpen($som_actions, $current_action); ?>">
-                    <a href="#" class="nav-link menu-toggle <?php echo $is_som_active; ?>">
+                    <a href="javascript:void(0);" class="nav-link menu-toggle <?php echo $is_som_active; ?>">
                         <i class="fas fa-utensils"></i>
                         <span>Sushisom 财务</span>
                         <i class="fas fa-angle-right pull-right"></i>
@@ -133,25 +133,25 @@ if ($is_som_active) {
 
                     <ul class="treeview-menu" style="display: <?php echo $is_som_active ? 'block' : 'none'; ?>;">
                         <li class="nav-item">
-                            <a href="<?php echo CP_BASE_URL; ?>som_add" class="nav-link <?php echo isActive('som_add', $current_action); ?>">
+                            <a href="/cp/index.php?action=som_add" class="nav-link <?php echo isActive('som_add', $current_action); ?>">
                                 <i class="fas fa-plus-circle"></i>
                                 <span>日常录入</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo CP_BASE_URL; ?>som_salary_add" class="nav-link <?php echo isActive('som_salary_add', $current_action); ?>">
+                            <a href="/cp/index.php?action=som_salary_add" class="nav-link <?php echo isActive('som_salary_add', $current_action); ?>">
                                 <i class="fas fa-money-bill-wave"></i>
                                 <span>月度工资</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo CP_BASE_URL; ?>som_report_store" class="nav-link <?php echo isActive('som_report_store', $current_action); ?>">
+                            <a href="/cp/index.php?action=som_report_store" class="nav-link <?php echo isActive('som_report_store', $current_action); ?>">
                                 <i class="fas fa-store"></i>
                                 <span>店铺报表</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo CP_BASE_URL; ?>som_report_investor" class="nav-link <?php echo isActive('som_report_investor', $current_action); ?>">
+                            <a href="/cp/index.php?action=som_report_investor" class="nav-link <?php echo isActive('som_report_investor', $current_action); ?>">
                                 <i class="fas fa-chart-pie"></i>
                                 <span>投资人报表</span>
                             </a>
@@ -161,7 +161,7 @@ if ($is_som_active) {
 
                 <!-- TEA投资 -->
                 <li class="nav-item treeview <?php echo isMenuOpen($tea_actions, $current_action); ?>">
-                    <a href="#" class="nav-link menu-toggle <?php echo $is_tea_active; ?>">
+                    <a href="javascript:void(0);" class="nav-link menu-toggle <?php echo $is_tea_active; ?>">
                         <i class="fas fa-mug-hot"></i>
                         <span>TEA投资</span>
                         <i class="fas fa-angle-right pull-right"></i>
@@ -169,25 +169,25 @@ if ($is_som_active) {
 
                     <ul class="treeview-menu" style="display: <?php echo $is_tea_active ? 'block' : 'none'; ?>;">
                         <li class="nav-item">
-                            <a href="<?php echo CP_BASE_URL; ?>tea_dashboard" class="nav-link <?php echo isActive('tea_dashboard', $current_action); ?>">
+                            <a href="/cp/index.php?action=tea_dashboard" class="nav-link <?php echo isActive('tea_dashboard', $current_action); ?>">
                                 <i class="fas fa-chart-area"></i>
                                 <span>概览</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo CP_BASE_URL; ?>tea_add" class="nav-link <?php echo isActive('tea_add', $current_action); ?>">
+                            <a href="/cp/index.php?action=tea_add" class="nav-link <?php echo isActive('tea_add', $current_action); ?>">
                                 <i class="fas fa-plus-square"></i>
                                 <span>投资录入</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo CP_BASE_URL; ?>tea_report_investor" class="nav-link <?php echo isActive('tea_report_investor', $current_action); ?>">
+                            <a href="/cp/index.php?action=tea_report_investor" class="nav-link <?php echo isActive('tea_report_investor', $current_action); ?>">
                                 <i class="fas fa-file-invoice-dollar"></i>
                                 <span>投资报表</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo CP_BASE_URL; ?>tea_store_manage" class="nav-link <?php echo isActive('tea_store_manage', $current_action); ?>">
+                            <a href="/cp/index.php?action=tea_store_manage" class="nav-link <?php echo isActive('tea_store_manage', $current_action); ?>">
                                 <i class="fas fa-building"></i>
                                 <span>店铺管理</span>
                             </a>
@@ -202,7 +202,7 @@ if ($is_som_active) {
 
                 <!-- DTS 时间线 -->
                 <li class="nav-item treeview <?php echo isMenuOpen($dts_actions, $current_action); ?>">
-                    <a href="#" class="nav-link menu-toggle <?php echo $is_dts_active; ?>">
+                    <a href="javascript:void(0);" class="nav-link menu-toggle <?php echo $is_dts_active; ?>">
                         <i class="fas fa-calendar-alt"></i>
                         <span>DTS 时间线</span>
                         <i class="fas fa-angle-right pull-right"></i>
@@ -210,37 +210,37 @@ if ($is_som_active) {
 
                     <ul class="treeview-menu" style="display: <?php echo $is_dts_active ? 'block' : 'none'; ?>;">
                         <li class="nav-item">
-                            <a href="<?php echo CP_BASE_URL; ?>dts_quick" class="nav-link <?php echo isActive('dts_quick', $current_action); ?>">
+                            <a href="/cp/index.php?action=dts_quick" class="nav-link <?php echo isActive('dts_quick', $current_action); ?>">
                                 <i class="fas fa-bolt"></i>
                                 <span>极速录入</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo CP_BASE_URL; ?>dts_main" class="nav-link <?php echo isActive('dts_main', $current_action); ?>">
+                            <a href="/cp/index.php?action=dts_main" class="nav-link <?php echo isActive('dts_main', $current_action); ?>">
                                 <i class="fas fa-list"></i>
                                 <span>DTS 总览</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo CP_BASE_URL; ?>dts_subject" class="nav-link <?php echo isActive('dts_subject', $current_action); ?>">
+                            <a href="/cp/index.php?action=dts_subject" class="nav-link <?php echo isActive('dts_subject', $current_action); ?>">
                                 <i class="fas fa-user-tag"></i>
                                 <span>主体管理</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo CP_BASE_URL; ?>dts_object" class="nav-link <?php echo isActive('dts_object', $current_action); ?>">
+                            <a href="/cp/index.php?action=dts_object" class="nav-link <?php echo isActive('dts_object', $current_action); ?>">
                                 <i class="fas fa-cubes"></i>
                                 <span>对象管理</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo CP_BASE_URL; ?>dts_rule" class="nav-link <?php echo isActive('dts_rule', $current_action); ?>">
+                            <a href="/cp/index.php?action=dts_rule" class="nav-link <?php echo isActive('dts_rule', $current_action); ?>">
                                 <i class="fas fa-cogs"></i>
                                 <span>规则管理</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="<?php echo CP_BASE_URL; ?>dts_category_manage" class="nav-link <?php echo isActive('dts_category_manage', $current_action); ?>">
+                            <a href="/cp/index.php?action=dts_category_manage" class="nav-link <?php echo isActive('dts_category_manage', $current_action); ?>">
                                 <i class="fas fa-tags"></i>
                                 <span>分类管理</span>
                             </a>
@@ -254,7 +254,7 @@ if ($is_som_active) {
                 </li>
 
                 <li class="nav-item">
-                    <a href="<?php echo CP_BASE_URL; ?>profile" class="nav-link <?php echo isActive('profile', $current_action); ?>">
+                    <a href="/cp/index.php?action=profile" class="nav-link <?php echo isActive('profile', $current_action); ?>">
                         <i class="fas fa-user-circle"></i>
                         <span>个人资料</span>
                     </a>
@@ -271,7 +271,7 @@ if ($is_som_active) {
     <div class="main-content">
         <!-- 顶部导航栏 -->
         <header class="main-header">
-            <button type="button" class="sidebar-toggle-btn" aria-label="打开菜单" onclick="toggleSidebar()">
+            <button type="button" class="sidebar-toggle-btn" aria-label="打开菜单">
                 <span class="icon-bars" aria-hidden="true"></span>
             </button>
 
@@ -293,45 +293,69 @@ if ($is_som_active) {
 
         <!-- 内容区域 -->
         <div class="view-content-wrapper">
-            <script>
-                // 侧边栏切换功能
-                function toggleSidebar() {
-                    document.body.classList.toggle('sidebar-open');
-                }
 
-                // 关闭侧边栏（点击遮罩）
-                document.addEventListener('DOMContentLoaded', function() {
-                    const backdrop = document.querySelector('.sidebar-backdrop');
-                    if (backdrop) {
-                        backdrop.addEventListener('click', function() {
-                            document.body.classList.remove('sidebar-open');
-                        });
-                    }
+<script>
+// 侧边栏和菜单控制 - 修复版
+(function() {
+    'use strict';
 
-                    // 菜单折叠功能
-                    const menuToggles = document.querySelectorAll('.menu-toggle');
-                    menuToggles.forEach(function(toggle) {
-                        toggle.addEventListener('click', function(e) {
-                            e.preventDefault();
-                            const parent = this.closest('.treeview');
-                            const submenu = parent.querySelector('.treeview-menu');
+    // 侧边栏切换功能
+    window.toggleSidebar = function() {
+        document.body.classList.toggle('sidebar-open');
+    };
 
-                            if (parent.classList.contains('menu-open')) {
-                                parent.classList.remove('menu-open');
-                                submenu.style.display = 'none';
-                            } else {
-                                // 关闭其他打开的菜单
-                                document.querySelectorAll('.treeview.menu-open').forEach(function(openMenu) {
-                                    if (openMenu !== parent) {
-                                        openMenu.classList.remove('menu-open');
-                                        openMenu.querySelector('.treeview-menu').style.display = 'none';
-                                    }
-                                });
+    // DOM加载完成后初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        // 侧边栏遮罩点击关闭
+        const backdrop = document.querySelector('.sidebar-backdrop');
+        if (backdrop) {
+            backdrop.addEventListener('click', function() {
+                document.body.classList.remove('sidebar-open');
+            });
+        }
 
-                                parent.classList.add('menu-open');
-                                submenu.style.display = 'block';
+        // 侧边栏切换按钮
+        const toggleBtn = document.querySelector('.sidebar-toggle-btn');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', toggleSidebar);
+        }
+
+        // 菜单折叠功能 - 修复版
+        const menuToggles = document.querySelectorAll('.menu-toggle');
+        menuToggles.forEach(function(toggle) {
+            toggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation(); // 阻止事件冒泡
+
+                const parent = this.closest('.treeview');
+                const submenu = parent.querySelector('.treeview-menu');
+
+                if (!parent || !submenu) return;
+
+                const isOpen = parent.classList.contains('menu-open');
+
+                if (isOpen) {
+                    // 关闭当前菜单
+                    parent.classList.remove('menu-open');
+                    submenu.style.display = 'none';
+                } else {
+                    // 先关闭所有其他菜单
+                    document.querySelectorAll('.treeview.menu-open').forEach(function(openMenu) {
+                        if (openMenu !== parent) {
+                            openMenu.classList.remove('menu-open');
+                            const openSubmenu = openMenu.querySelector('.treeview-menu');
+                            if (openSubmenu) {
+                                openSubmenu.style.display = 'none';
                             }
-                        });
+                        }
                     });
-                });
-            </script>
+
+                    // 打开当前菜单
+                    parent.classList.add('menu-open');
+                    submenu.style.display = 'block';
+                }
+            });
+        });
+    });
+})();
+</script>
